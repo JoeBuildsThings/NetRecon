@@ -3,31 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0B0C0E" />
-  <title>NetRecon — Attack-Surface &amp; Network Reconnaissance</title>
+  <meta name="theme-color" content="#090B0E" />
+  <title>NetRecon — Network &amp; Attack-Surface Reconnaissance</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
   <style>
     :root {
-      --bg: #0B0C0E;
-      --surface: #111317;
-      --surface-2: #171A20;
-      --surface-hover: #1E222A;
-      --line: #252932;
-      --line-strong: #343A46;
-      --ink: #F3F4F6;
-      --ink-2: #A1A7B3;
-      --ink-3: #6B7280;
-      --amber: #F59E0B;
-      --amber-dim: rgba(245, 158, 11, 0.14);
+      --bg: #090B0E;
+      --surface: #11141A;
+      --surface-elevated: #161A22;
+      --surface-hover: #1C212B;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(255, 255, 255, 0.22);
+      --ink: #F8FAFC;
+      --ink-secondary: #94A3B8;
+      --ink-muted: #64748B;
+      --accent: #38BDF8;
+      --accent-ink: #041019;
+      --accent-soft: rgba(56, 189, 248, 0.12);
       --green: #10B981;
-      --green-dim: rgba(16, 185, 129, 0.14);
+      --green-soft: rgba(16, 185, 129, 0.14);
+      --amber: #F59E0B;
+      --amber-soft: rgba(245, 158, 11, 0.14);
       --red: #EF4444;
-      --red-dim: rgba(239, 68, 68, 0.14);
-      --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-ui: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --red-soft: rgba(239, 68, 68, 0.14);
+      --font-display: 'Syne', sans-serif;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --radius: 12px;
+      --radius-sm: 8px;
     }
 
     *, *::before, *::after {
@@ -37,18 +44,21 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: var(--bg);
+      background-color: var(--bg);
       color: var(--ink);
-      font-family: var(--font-ui);
+      font-family: var(--font-sans);
       font-size: 14px;
-      line-height: 1.45;
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
 
     a {
-      color: var(--ink);
+      color: var(--accent);
       text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
     }
 
     .mono {
@@ -56,347 +66,392 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* Outer Frame */
-    .shell {
+    .page {
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      max-width: 1400px;
+      max-width: 1260px;
       margin: 0 auto;
-      border-left: 1px solid var(--line);
-      border-right: 1px solid var(--line);
+      padding: 16px 16px 28px;
     }
 
-    @media (max-width: 1400px) {
-      .shell {
-        border-left: none;
-        border-right: none;
+    @media (min-width: 640px) {
+      .page {
+        padding: 24px 28px 36px;
       }
     }
 
-    /* Top Instrument Bar */
-    .topbar {
+    /* Minimal Top Navigation */
+    .nav {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 14px 16px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
-    }
-
-    @media (min-width: 768px) {
-      .topbar {
-        padding: 14px 24px;
-      }
+      padding-bottom: 16px;
     }
 
     .brand {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 10px;
     }
 
-    .brand-crosshair {
-      width: 28px;
-      height: 28px;
-      border: 1px solid var(--line-strong);
-      background: var(--bg);
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
       display: grid;
       place-items: center;
-      color: var(--amber);
+      color: var(--accent);
       flex-shrink: 0;
     }
 
-    .brand-name {
+    .brand-wordmark {
       margin: 0;
       font-family: var(--font-display);
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .rev-badge {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 1px 6px;
-      background: var(--amber-dim);
-      color: var(--amber);
-      border: 1px solid rgba(245, 158, 11, 0.35);
-    }
-
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .status-readout {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--ink);
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 5px 10px;
-      background: var(--bg);
-      border: 1px solid var(--line);
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--ink-2);
     }
 
-    .led {
+    .version-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--ink-secondary);
+    }
+
+    .nav-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-secondary);
+    }
+
+    .dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
       background: var(--green);
     }
-    .led.busy {
-      background: var(--amber);
-      animation: blink 0.9s infinite;
+    .dot.scanning {
+      background: var(--accent);
+      animation: pulse 1s infinite;
     }
-    .led.err {
+    .dot.error {
       background: var(--red);
     }
 
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.25; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.8); }
     }
 
-    /* Command Bar */
-    .command-bar {
-      padding: 16px;
-      background: var(--bg);
-      border-bottom: 1px solid var(--line);
+    /* Hero Stage: Command Left + Floating Unboxed 3D Earth Right */
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+      align-items: center;
+      padding: 12px 0 28px;
     }
 
-    @media (min-width: 768px) {
-      .command-bar {
-        padding: 18px 24px;
+    @media (min-width: 960px) {
+      .hero {
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+        gap: 36px;
+        padding: 20px 0 34px;
       }
     }
 
-    .scan-form {
+    .hero-command {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-    }
-
-    @media (min-width: 640px) {
-      .scan-form {
-        flex-direction: row;
-        align-items: stretch;
-      }
-    }
-
-    .input-box {
-      position: relative;
-      flex: 1;
+      gap: 16px;
       min-width: 0;
     }
 
-    .prompt-sigil {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      transform: translateY(-50%);
+    .hero-headline {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 800;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+
+    .search-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      transition: border-color 0.15s ease;
+    }
+
+    .search-shell:focus-within {
+      border-color: var(--border-focus);
+    }
+
+    @media (min-width: 560px) {
+      .search-shell {
+        flex-direction: row;
+        align-items: center;
+      }
+    }
+
+    .search-input-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-prompt {
+      padding-left: 12px;
       font-family: var(--font-mono);
       font-size: 13px;
       font-weight: 700;
-      color: var(--amber);
-      pointer-events: none;
+      color: var(--accent);
+      user-select: none;
     }
 
-    .target-input {
+    .search-input {
       width: 100%;
       height: 44px;
-      padding: 0 14px 0 38px;
-      background: var(--surface);
-      border: 1px solid var(--line-strong);
-      border-radius: 2px;
+      padding: 0 12px;
+      background: transparent;
+      border: none;
       color: var(--ink);
       font-family: var(--font-mono);
       font-size: 14px;
       outline: none;
-      transition: border-color 0.12s ease;
     }
 
-    .target-input::placeholder {
-      color: var(--ink-3);
+    .search-input::placeholder {
+      color: var(--ink-muted);
     }
 
-    .target-input:focus {
-      border-color: var(--amber);
-    }
-
-    .btn-exec {
+    .btn-scan {
       height: 44px;
       padding: 0 22px;
-      background: var(--amber);
-      color: #0B0C0E;
-      border: 1px solid var(--amber);
-      border-radius: 2px;
-      font-family: var(--font-mono);
-      font-size: 13px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-family: var(--font-sans);
+      font-size: 14px;
       font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
       cursor: pointer;
       white-space: nowrap;
-      transition: background 0.12s ease, opacity 0.12s ease;
+      transition: opacity 0.15s ease, transform 0.1s ease;
     }
 
-    .btn-exec:hover:not(:disabled) {
-      background: #FBBF24;
+    .btn-scan:hover:not(:disabled) {
+      opacity: 0.92;
     }
 
-    .btn-exec:disabled {
+    .btn-scan:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn-scan:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    .command-subrow {
+    .quick-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-top: 12px;
+      gap: 8px;
     }
 
-    .preset-group {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .sub-label {
+    .quick-label {
       font-family: var(--font-mono);
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      color: var(--ink-3);
-      margin-right: 4px;
+      color: var(--ink-muted);
     }
 
-    .preset-chip {
+    .pill-btn {
       font-family: var(--font-mono);
       font-size: 12px;
-      padding: 4px 9px;
+      padding: 5px 11px;
+      border-radius: 999px;
       background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 2px;
-      color: var(--ink-2);
+      border: 1px solid var(--border);
+      color: var(--ink-secondary);
       cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     }
 
-    .preset-chip:hover {
-      border-color: var(--amber);
+    .pill-btn:hover {
+      background: var(--surface-elevated);
+      border-color: var(--border-focus);
       color: var(--ink);
     }
 
-    .tool-group {
-      display: flex;
-      gap: 6px;
-    }
-
-    .btn-tool {
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 500;
-      padding: 5px 10px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 2px;
-      color: var(--ink);
-      cursor: pointer;
-    }
-
-    .btn-tool:hover:not(:disabled) {
-      border-color: var(--line-strong);
-      background: var(--surface-2);
-    }
-
-    .btn-tool:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .alert-bar {
+    .error-toast {
       display: none;
-      margin-top: 12px;
-      padding: 10px 12px;
-      background: var(--red-dim);
-      border-left: 3px solid var(--red);
+      padding: 11px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--red-soft);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #FCA5A5;
       font-family: var(--font-mono);
       font-size: 12.5px;
-      color: #FCA5A5;
     }
-    .alert-bar.show {
+    .error-toast.visible {
       display: block;
     }
 
-    /* Hairline Telemetry Strip (No Floating Cards) */
-    .telemetry-strip {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Recent History Bar inside Hero */
+    .recent-bar {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding-top: 4px;
+    }
+    .recent-bar.has-items {
+      display: flex;
+    }
+
+    .hist-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
       background: var(--surface);
-      border-bottom: 1px solid var(--line);
+      border: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-secondary);
+      cursor: pointer;
+    }
+    .hist-pill:hover {
+      border-color: var(--border-focus);
+      color: var(--ink);
     }
 
-    @media (min-width: 900px) {
-      .telemetry-strip {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-    }
-
-    .telem-cell {
-      padding: 14px 16px;
-      border-right: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
+    /* Floating Unboxed 3D Earth Stage */
+    .earth-stage {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       min-width: 0;
     }
 
-    @media (min-width: 768px) {
-      .telem-cell {
-        padding: 16px 24px;
-      }
+    .earth-canvas-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 390px;
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+      cursor: grab;
+      touch-action: pan-y;
+      user-select: none;
     }
 
-    .telem-cell:nth-child(2n) {
-      border-right: none;
+    .earth-canvas-wrap:active {
+      cursor: grabbing;
+    }
+
+    #earthCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .earth-caption {
+      margin-top: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-secondary);
+    }
+
+    .earth-action {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--ink-secondary);
+      cursor: pointer;
+    }
+    .earth-action:hover {
+      border-color: var(--border-focus);
+      color: var(--ink);
+    }
+
+    /* 4-Card Summary Strip */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
     }
 
     @media (min-width: 900px) {
-      .telem-cell {
-        border-bottom: none;
-      }
-      .telem-cell:nth-child(2n) {
-        border-right: 1px solid var(--line);
-      }
-      .telem-cell:last-child {
-        border-right: none;
+      .metrics-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
       }
     }
 
-    .telem-key {
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      min-width: 0;
+    }
+
+    .metric-label {
       font-family: var(--font-mono);
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--ink-3);
-      margin-bottom: 5px;
+      letter-spacing: 0.06em;
+      color: var(--ink-muted);
+      margin-bottom: 6px;
     }
 
-    .telem-val {
+    .metric-val {
       font-family: var(--font-mono);
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 700;
       color: var(--ink);
       white-space: nowrap;
@@ -404,123 +459,120 @@
       text-overflow: ellipsis;
     }
 
-    .telem-meta {
-      margin-top: 3px;
+    .metric-sub {
+      margin-top: 4px;
       font-family: var(--font-mono);
       font-size: 11.5px;
-      color: var(--ink-2);
+      color: var(--ink-secondary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* Main Split Workbench */
-    .workbench {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
+    /* Main Findings Panel */
+    .results-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
       flex: 1;
     }
 
-    @media (min-width: 1024px) {
-      .workbench {
-        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-      }
-    }
-
-    .pane-left {
+    .results-toolbar {
       display: flex;
-      flex-direction: column;
-      border-bottom: 1px solid var(--line);
-      min-width: 0;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-elevated);
     }
 
-    @media (min-width: 1024px) {
-      .pane-left {
-        border-bottom: none;
-        border-right: 1px solid var(--line);
-      }
-    }
-
-    /* Segmented Tabs */
-    .tab-bar {
+    .tab-pills {
       display: flex;
-      overflow-x: auto;
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
-      scrollbar-width: none;
-    }
-    .tab-bar::-webkit-scrollbar {
-      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
-    .tab {
-      flex: 0 0 auto;
-      padding: 12px 18px;
+    .tab-pill {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid transparent;
       background: transparent;
-      border: none;
-      border-right: 1px solid var(--line);
-      border-bottom: 2px solid transparent;
-      color: var(--ink-2);
+      color: var(--ink-secondary);
       font-family: var(--font-mono);
       font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
       cursor: pointer;
-      white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease;
     }
 
-    .tab:hover {
+    .tab-pill:hover {
       color: var(--ink);
-      background: var(--surface-2);
+      background: rgba(255, 255, 255, 0.04);
     }
 
-    .tab.active {
-      color: var(--amber);
+    .tab-pill.active {
       background: var(--bg);
-      border-bottom-color: var(--amber);
+      border-color: var(--border);
+      color: var(--accent);
     }
 
-    .tab-count {
-      margin-left: 6px;
-      font-size: 11px;
-      color: var(--ink-3);
-    }
-    .tab.active .tab-count {
-      color: var(--amber);
+    .export-bar {
+      display: flex;
+      gap: 8px;
     }
 
-    .panel-body {
+    .btn-export {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 6px 11px;
+      border-radius: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--ink-secondary);
+      cursor: pointer;
+    }
+
+    .btn-export:hover:not(:disabled) {
+      border-color: var(--border-focus);
+      color: var(--ink);
+    }
+
+    .btn-export:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .tab-view {
       display: none;
-      padding: 16px;
+      padding: 18px;
     }
 
-    @media (min-width: 768px) {
-      .panel-body {
-        padding: 20px 24px;
+    @media (min-width: 640px) {
+      .tab-view {
+        padding: 22px;
       }
     }
 
-    .panel-body.active {
+    .tab-view.active {
       display: block;
     }
 
-    .standby-box {
-      padding: 36px 16px;
-      border: 1px dashed var(--line);
+    .empty-box {
+      padding: 40px 16px;
       text-align: center;
       font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--ink-3);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      font-size: 12.5px;
+      color: var(--ink-muted);
     }
 
     /* Tables */
-    .table-wrap {
+    .table-scroll {
       width: 100%;
       overflow-x: auto;
-      border: 1px solid var(--line);
     }
 
     table {
@@ -531,20 +583,19 @@
 
     th {
       text-align: left;
-      background: var(--surface);
       font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--ink-3);
-      padding: 9px 12px;
-      border-bottom: 1px solid var(--line);
+      color: var(--ink-muted);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
     }
 
     td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--line);
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
       vertical-align: top;
     }
 
@@ -553,369 +604,180 @@
     }
 
     tr:hover td {
-      background: rgba(23, 26, 32, 0.55);
+      background: rgba(255, 255, 255, 0.02);
     }
 
-    .tag {
+    .badge {
       display: inline-block;
-      padding: 2px 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
       font-family: var(--font-mono);
-      font-size: 10.5px;
-      font-weight: 700;
+      font-size: 11px;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
 
-    .tag-ok {
-      background: var(--green-dim);
+    .badge-green {
+      background: var(--green-soft);
       color: var(--green);
     }
-    .tag-warn {
-      background: var(--amber-dim);
+    .badge-amber {
+      background: var(--amber-soft);
       color: var(--amber);
     }
-    .tag-high {
-      background: var(--red-dim);
+    .badge-red {
+      background: var(--red-soft);
       color: var(--red);
     }
-    .tag-neutral {
-      background: var(--surface-2);
-      color: var(--ink-2);
+    .badge-blue {
+      background: var(--accent-soft);
+      color: var(--accent);
     }
 
-    .banner-cell {
+    .banner-col {
       font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--ink-2);
+      font-size: 12px;
+      color: var(--ink-secondary);
       word-break: break-all;
-      max-width: 300px;
+      max-width: 340px;
     }
 
-    /* DNS & Web Audit Key-Value Matrix */
-    .kv-matrix {
+    /* Sub-grids inside DNS & TLS tabs */
+    .info-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      border: 1px solid var(--line);
-      margin-bottom: 16px;
-      background: var(--surface);
+      gap: 12px;
+      margin-bottom: 18px;
     }
 
-    .kv-cell {
-      padding: 10px 12px;
-      border-right: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
+    @media (min-width: 768px) {
+      .info-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    .info-tile {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
       min-width: 0;
     }
 
-    .kv-cell:nth-child(2n) {
-      border-right: none;
-    }
-    .kv-cell:nth-last-child(-n+2) {
-      border-bottom: none;
-    }
-
-    .kv-k {
+    .info-tile-k {
       font-family: var(--font-mono);
       font-size: 10.5px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--ink-3);
-      margin-bottom: 3px;
+      color: var(--ink-muted);
+      margin-bottom: 4px;
     }
 
-    .kv-v {
+    .info-tile-v {
       font-family: var(--font-mono);
-      font-size: 12.5px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--ink);
       word-break: break-word;
     }
 
-    /* Security Score Meter */
-    .score-bar-wrap {
-      margin-bottom: 16px;
-      padding: 12px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-    }
-
-    .score-bar-head {
-      display: flex;
-      justify-content: space-between;
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      margin-bottom: 8px;
-    }
-
-    .score-track {
-      width: 100%;
-      height: 6px;
-      background: var(--bg);
+    .dns-section {
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       overflow: hidden;
     }
 
-    .score-fill {
+    .dns-section-head {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .dns-item {
+      padding: 9px 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink);
+      border-bottom: 1px solid var(--border);
+      word-break: break-all;
+    }
+    .dns-item:last-child {
+      border-bottom: none;
+    }
+
+    .meter-box {
+      margin-bottom: 16px;
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+
+    .meter-top {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .meter-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--surface-elevated);
+      overflow: hidden;
+    }
+
+    .meter-bar {
       height: 100%;
       width: 0%;
+      border-radius: 999px;
       background: var(--green);
       transition: width 0.35s ease, background 0.35s ease;
     }
 
-    .dns-block {
-      border: 1px solid var(--line);
-      margin-bottom: 10px;
-    }
-
-    .dns-block-head {
-      display: flex;
-      justify-content: space-between;
-      padding: 7px 12px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 700;
-      color: var(--amber);
-    }
-
-    .dns-val {
-      padding: 8px 12px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--ink);
-      border-bottom: 1px solid var(--line);
-      word-break: break-all;
-    }
-    .dns-val:last-child {
-      border-bottom: none;
-    }
-
-    .raw-pre {
+    .raw-viewer {
       margin: 0;
-      padding: 14px;
-      background: var(--surface);
-      border: 1px solid var(--line);
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      border: 1px solid var(--border);
       font-family: var(--font-mono);
       font-size: 12px;
-      line-height: 1.5;
-      color: #D1D5DB;
+      line-height: 1.55;
+      color: #CBD5E1;
       max-height: 460px;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-word;
     }
 
-    /* Right Column: 3D Cartographic Globe + History */
-    .pane-right {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      background: var(--bg);
-    }
-
-    .section-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--line);
-    }
-
-    .section-title {
-      margin: 0;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--ink);
-    }
-
-    .globe-viewport {
-      position: relative;
-      width: 100%;
-      height: 280px;
-      background: #08090B;
-      border-bottom: 1px solid var(--line);
-      cursor: grab;
-      touch-action: pan-y;
-      user-select: none;
-      overflow: hidden;
-    }
-
-    .globe-viewport:active {
-      cursor: grabbing;
-    }
-
-    @media (min-width: 640px) {
-      .globe-viewport {
-        height: 320px;
-      }
-    }
-
-    @media (min-width: 1024px) {
-      .globe-viewport {
-        height: 340px;
-      }
-    }
-
-    #globeCanvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .hud-overlay-top {
-      position: absolute;
-      top: 10px;
-      left: 12px;
-      right: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      pointer-events: none;
-    }
-
-    .hud-chip {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 3px 7px;
-      background: rgba(11, 12, 14, 0.85);
-      border: 1px solid var(--line);
-      color: var(--ink-2);
-    }
-
-    .hud-overlay-bottom {
-      position: absolute;
-      bottom: 10px;
-      left: 12px;
-      right: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .hud-btns {
-      display: flex;
-      gap: 6px;
-    }
-
-    .hud-btn {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 8px;
-      background: rgba(17, 19, 23, 0.92);
-      border: 1px solid var(--line-strong);
-      color: var(--ink);
-      cursor: pointer;
-      text-transform: uppercase;
-    }
-
-    .hud-btn:hover {
-      border-color: var(--amber);
-      color: var(--amber);
-    }
-
-    .geo-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      border-bottom: 1px solid var(--line);
-      background: var(--surface);
-    }
-
-    .geo-cell {
-      padding: 10px 16px;
-      border-right: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      min-width: 0;
-    }
-
-    .geo-cell:nth-child(2n) {
-      border-right: none;
-    }
-    .geo-cell:nth-last-child(-n+2) {
-      border-bottom: none;
-    }
-
-    .geo-k {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--ink-3);
-    }
-
-    .geo-v {
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      color: var(--ink);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-top: 2px;
-    }
-
-    /* Recent History */
-    .history-wrap {
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .hist-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 8px 10px;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      cursor: pointer;
-    }
-
-    .hist-item:hover {
-      border-color: var(--amber);
-    }
-
-    .hist-host {
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--ink);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .hist-sub {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--ink-2);
-      flex-shrink: 0;
-    }
-
-    /* Architectural Footer with GitHub Links */
+    /* Footer with GitHub Octocat Marks */
     .footer {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 14px 16px;
-      background: var(--surface);
-      border-top: 1px solid var(--line);
       font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--ink-3);
+      font-size: 12px;
+      color: var(--ink-muted);
     }
 
-    @media (min-width: 768px) {
+    @media (min-width: 640px) {
       .footer {
-        padding: 14px 24px;
+        flex-direction: row;
       }
     }
 
@@ -926,263 +788,225 @@
       gap: 10px;
     }
 
-    .gh-btn {
+    .gh-chip {
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      padding: 5px 11px;
-      background: var(--bg);
-      border: 1px solid var(--line-strong);
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
       color: var(--ink);
       font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 600;
-      transition: border-color 0.12s ease, color 0.12s ease;
+      font-size: 12px;
+      font-weight: 500;
+      transition: border-color 0.15s ease, color 0.15s ease;
     }
 
-    .gh-btn:hover {
-      border-color: var(--amber);
-      color: var(--amber);
+    .gh-chip:hover {
+      border-color: var(--border-focus);
+      color: var(--accent);
       text-decoration: none;
     }
 
-    .gh-btn svg {
-      width: 15px;
-      height: 15px;
+    .gh-chip svg {
+      width: 16px;
+      height: 16px;
       fill: currentColor;
       flex-shrink: 0;
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <!-- Top Bar -->
-    <header class="topbar">
+  <div class="page">
+    <!-- Top Nav -->
+    <header class="nav">
       <div class="brand">
-        <div class="brand-crosshair" aria-hidden="true">
+        <div class="brand-icon" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="9"></circle>
-            <line x1="12" y1="1" x2="12" y2="5"></line>
-            <line x1="12" y1="19" x2="12" y2="23"></line>
-            <line x1="1" y1="12" x2="5" y2="12"></line>
-            <line x1="19" y1="12" x2="23" y2="12"></line>
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
           </svg>
         </div>
-        <h1 class="brand-name">NETRECON <span class="rev-badge">2.0</span></h1>
+        <h1 class="brand-wordmark">NetRecon <span class="version-pill">v2.0</span></h1>
       </div>
 
-      <div class="topbar-right">
-        <div class="status-readout">
-          <span class="led" id="ledDot"></span>
-          <span id="statusText">READY</span>
-        </div>
+      <div class="nav-status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusLabel">READY</span>
       </div>
     </header>
 
-    <!-- Target Input Bar -->
-    <section class="command-bar" aria-label="Target Input">
-      <form class="scan-form" id="scanForm">
-        <div class="input-box">
-          <span class="prompt-sigil">&gt;_</span>
-          <input
-            type="text"
-            id="targetInput"
-            class="target-input"
-            name="target"
-            placeholder="domain.com or public IP"
-            autocomplete="off"
-            spellcheck="false"
-            required
-          />
+    <!-- Hero Stage: Command Left + Floating Unboxed 3D Earth Right -->
+    <section class="hero">
+      <div class="hero-command">
+        <h2 class="hero-headline">External Attack-Surface &amp; Network Reconnaissance</h2>
+
+        <form class="search-shell" id="scanForm">
+          <div class="search-input-wrap">
+            <span class="search-prompt">&gt;_</span>
+            <input
+              type="text"
+              id="targetInput"
+              class="search-input"
+              name="target"
+              placeholder="domain.com or public IP"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            />
+          </div>
+          <button type="submit" class="btn-scan" id="scanBtn">
+            <span id="scanBtnText">Scan Target</span>
+          </button>
+        </form>
+
+        <div class="quick-row">
+          <span class="quick-label">Targets</span>
+          <button type="button" class="pill-btn" data-target="1.1.1.1">1.1.1.1</button>
+          <button type="button" class="pill-btn" data-target="8.8.8.8">8.8.8.8</button>
+          <button type="button" class="pill-btn" data-target="github.com">github.com</button>
+          <button type="button" class="pill-btn" data-target="vercel.com">vercel.com</button>
         </div>
-        <button type="submit" class="btn-exec" id="scanBtn">
-          <span id="scanBtnLabel">SCAN TARGET</span>
-        </button>
-      </form>
 
-      <div class="command-subrow">
-        <div class="preset-group">
-          <span class="sub-label">PRESETS</span>
-          <button type="button" class="preset-chip" data-target="1.1.1.1">1.1.1.1</button>
-          <button type="button" class="preset-chip" data-target="8.8.8.8">8.8.8.8</button>
-          <button type="button" class="preset-chip" data-target="github.com">github.com</button>
-          <button type="button" class="preset-chip" data-target="vercel.com">vercel.com</button>
+        <div class="recent-bar" id="recentBar"></div>
+
+        <div class="error-toast" id="errorToast" role="alert"></div>
+      </div>
+
+      <!-- Floating Unboxed 3D Earth -->
+      <div class="earth-stage">
+        <div class="earth-canvas-wrap" id="earthWrap" title="Drag or swipe to rotate Earth">
+          <canvas id="earthCanvas"></canvas>
         </div>
-
-        <div class="tool-group">
-          <button type="button" class="btn-tool" id="copyMdBtn" disabled>COPY MD</button>
-          <button type="button" class="btn-tool" id="exportJsonBtn" disabled>EXPORT JSON</button>
+        <div class="earth-caption">
+          <span id="earthCoords">0.00° N, 0.00° E</span>
+          <button type="button" class="earth-action" id="spinBtn">Pause</button>
+          <button type="button" class="earth-action" id="lockBtn" style="display:none;">Center Target</button>
+          <a class="earth-action" id="mapLink" href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" style="display:none;">Map ↗</a>
         </div>
-      </div>
-
-      <div class="alert-bar" id="alertBar" role="alert"></div>
-    </section>
-
-    <!-- 4-Cell Hairline Telemetry Strip -->
-    <section class="telemetry-strip" aria-label="Summary Telemetry">
-      <div class="telem-cell">
-        <div class="telem-key">PRIMARY IP</div>
-        <div class="telem-val" id="kpiIp">—</div>
-        <div class="telem-meta" id="kpiPtr">PTR: —</div>
-      </div>
-      <div class="telem-cell">
-        <div class="telem-key">ASN / NETWORK</div>
-        <div class="telem-val" id="kpiAsn">—</div>
-        <div class="telem-meta" id="kpiOrg">—</div>
-      </div>
-      <div class="telem-cell">
-        <div class="telem-key">OPEN PORTS</div>
-        <div class="telem-val" id="kpiPorts">—</div>
-        <div class="telem-meta" id="kpiPortsMeta">22 TCP PROBES</div>
-      </div>
-      <div class="telem-cell">
-        <div class="telem-key">POSTURE GRADE</div>
-        <div class="telem-val" id="kpiGrade">—</div>
-        <div class="telem-meta" id="kpiTls">TLS: —</div>
       </div>
     </section>
 
-    <!-- Main Workbench -->
-    <main class="workbench">
-      <!-- Left 7 Cols: Recon Data -->
-      <section class="pane-left" aria-label="Reconnaissance Output">
-        <div class="tab-bar" role="tablist">
-          <button type="button" class="tab active" role="tab" data-tab="ports">PORTS <span class="tab-count" id="tabPortCount"></span></button>
-          <button type="button" class="tab" role="tab" data-tab="dns">DNS <span class="tab-count" id="tabDnsCount"></span></button>
-          <button type="button" class="tab" role="tab" data-tab="web">TLS / HTTP</button>
-          <button type="button" class="tab" role="tab" data-tab="raw">JSON</button>
+    <!-- 4-Card Summary Strip -->
+    <section class="metrics-grid" aria-label="Telemetry Summary">
+      <div class="metric-card">
+        <div class="metric-label">Primary IP</div>
+        <div class="metric-val" id="mIp">—</div>
+        <div class="metric-sub" id="mPtr">PTR: —</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">ASN / Network</div>
+        <div class="metric-val" id="mAsn">—</div>
+        <div class="metric-sub" id="mOrg">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Open Ports</div>
+        <div class="metric-val" id="mPorts">—</div>
+        <div class="metric-sub" id="mPortsSub">22 TCP probes</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Web Grade</div>
+        <div class="metric-val" id="mGrade">—</div>
+        <div class="metric-sub" id="mTls">TLS: —</div>
+      </div>
+    </section>
+
+    <!-- Main Findings Workbench -->
+    <main class="results-panel">
+      <div class="results-toolbar">
+        <div class="tab-pills" role="tablist">
+          <button type="button" class="tab-pill active" role="tab" data-tab="ports">Ports <span id="cPorts"></span></button>
+          <button type="button" class="tab-pill" role="tab" data-tab="dns">DNS <span id="cDns"></span></button>
+          <button type="button" class="tab-pill" role="tab" data-tab="web">TLS &amp; Headers</button>
+          <button type="button" class="tab-pill" role="tab" data-tab="raw">JSON</button>
         </div>
 
-        <!-- Ports Tab -->
-        <div class="panel-body active" id="pane-ports">
-          <div class="standby-box" id="portsStandby">AWAITING TARGET</div>
-          <div class="table-wrap" id="portsTableWrap" style="display:none;">
+        <div class="export-bar">
+          <button type="button" class="btn-export" id="copyMdBtn" disabled>Copy Markdown</button>
+          <button type="button" class="btn-export" id="exportJsonBtn" disabled>Export JSON</button>
+        </div>
+      </div>
+
+      <!-- Tab: Ports -->
+      <div class="tab-view active" id="view-ports">
+        <div class="empty-box" id="portsEmpty">Run a scan to inspect open ports and service banners.</div>
+        <div class="table-scroll" id="portsTableBox" style="display:none;">
+          <table>
+            <thead>
+              <tr>
+                <th>Port</th>
+                <th>Service</th>
+                <th>Exposure</th>
+                <th>Latency</th>
+                <th>Banner</th>
+              </tr>
+            </thead>
+            <tbody id="portsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: DNS -->
+      <div class="tab-view" id="view-dns">
+        <div class="empty-box" id="dnsEmpty">Run a scan to enumerate DNS records and infrastructure providers.</div>
+        <div id="dnsBox" style="display:none;">
+          <div class="info-grid" id="dnsSummaryGrid"></div>
+          <div id="dnsGroups"></div>
+        </div>
+      </div>
+
+      <!-- Tab: TLS & Headers -->
+      <div class="tab-view" id="view-web">
+        <div class="empty-box" id="webEmpty">Run a scan to audit TLS certificates and HTTP security headers.</div>
+        <div id="webBox" style="display:none;">
+          <div class="meter-box">
+            <div class="meter-top">
+              <span style="color:var(--ink-secondary);">Security Header Score</span>
+              <span class="mono" id="scoreLabel" style="font-weight:700;">0 / 100</span>
+            </div>
+            <div class="meter-track">
+              <div class="meter-bar" id="scoreBar"></div>
+            </div>
+          </div>
+          <div class="info-grid" id="tlsInfoGrid"></div>
+          <div class="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>PORT</th>
-                  <th>SERVICE</th>
-                  <th>RISK</th>
-                  <th>RTT</th>
-                  <th>BANNER</th>
+                  <th>Header</th>
+                  <th>Status</th>
+                  <th>Value</th>
                 </tr>
               </thead>
-              <tbody id="portsTbody"></tbody>
+              <tbody id="headersBody"></tbody>
             </table>
           </div>
         </div>
+      </div>
 
-        <!-- DNS Tab -->
-        <div class="panel-body" id="pane-dns">
-          <div class="standby-box" id="dnsStandby">AWAITING TARGET</div>
-          <div id="dnsView" style="display:none;">
-            <div class="kv-matrix" id="dnsPostureGrid"></div>
-            <div id="dnsRecordsContainer"></div>
-          </div>
-        </div>
-
-        <!-- Web & TLS Tab -->
-        <div class="panel-body" id="pane-web">
-          <div class="standby-box" id="webStandby">AWAITING TARGET</div>
-          <div id="webView" style="display:none;">
-            <div class="score-bar-wrap">
-              <div class="score-bar-head">
-                <span style="color:var(--ink-2);">HTTP SECURITY SCORE</span>
-                <span id="scoreText" style="color:var(--ink);font-weight:700;">0 / 100</span>
-              </div>
-              <div class="score-track">
-                <div class="score-fill" id="scoreFill"></div>
-              </div>
-            </div>
-            <div class="kv-matrix" id="tlsGrid"></div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>HEADER</th>
-                    <th>STATUS</th>
-                    <th>VALUE</th>
-                  </tr>
-                </thead>
-                <tbody id="headersTbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Raw JSON Tab -->
-        <div class="panel-body" id="pane-raw">
-          <pre class="raw-pre" id="rawPre">{}</pre>
-        </div>
-      </section>
-
-      <!-- Right 5 Cols: 3D Globe & Scan History -->
-      <aside class="pane-right">
-        <div class="section-bar">
-          <h2 class="section-title">GLOBAL TELEMETRY</h2>
-          <span class="mono" style="font-size:11px;color:var(--amber);" id="globeStateTag">ORBIT</span>
-        </div>
-
-        <div class="globe-viewport" id="globeStage">
-          <canvas id="globeCanvas"></canvas>
-          <div class="hud-overlay-top">
-            <span class="hud-chip" id="hudCoords">0.00° N, 0.00° E</span>
-            <span class="hud-chip" id="hudCity">STANDBY</span>
-          </div>
-          <div class="hud-overlay-bottom">
-            <div class="hud-btns">
-              <button type="button" class="hud-btn" id="spinToggleBtn">PAUSE</button>
-              <button type="button" class="hud-btn" id="lockTargetBtn" style="display:none;">LOCK</button>
-            </div>
-            <a class="hud-btn" id="extMapLink" href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" style="display:none;">MAP ↗</a>
-          </div>
-        </div>
-
-        <div class="geo-grid">
-          <div class="geo-cell">
-            <div class="geo-k">CITY / REGION</div>
-            <div class="geo-v" id="geoCity">—</div>
-          </div>
-          <div class="geo-cell">
-            <div class="geo-k">COUNTRY</div>
-            <div class="geo-v" id="geoCountry">—</div>
-          </div>
-          <div class="geo-cell">
-            <div class="geo-k">TIMEZONE</div>
-            <div class="geo-v" id="geoTz">—</div>
-          </div>
-          <div class="geo-cell">
-            <div class="geo-k">RESOLVED IPS</div>
-            <div class="geo-v" id="geoIps">—</div>
-          </div>
-        </div>
-
-        <div class="section-bar" style="border-top:1px solid var(--line);">
-          <h2 class="section-title">HISTORY</h2>
-          <button type="button" class="hud-btn" id="clearHistBtn">CLEAR</button>
-        </div>
-
-        <div class="history-wrap" id="historyList">
-          <div class="standby-box" style="padding:18px 10px;">NO SCANS</div>
-        </div>
-      </aside>
+      <!-- Tab: JSON -->
+      <div class="tab-view" id="view-raw">
+        <pre class="raw-viewer" id="rawJson">{}</pre>
+      </div>
     </main>
 
     <!-- Footer with GitHub Marks -->
     <footer class="footer">
-      <span>NETRECON // EXTERNAL RECONNAISSANCE</span>
+      <span>NetRecon // External Reconnaissance</span>
       <div class="footer-links">
-        <a class="gh-btn" href="https://github.com/JoeBuildsThings" target="_blank" rel="noopener noreferrer" aria-label="GitHub @JoeBuildsThings">
+        <a class="gh-chip" href="https://github.com/JoeBuildsThings" target="_blank" rel="noopener noreferrer" aria-label="GitHub @JoeBuildsThings">
           <svg viewBox="0 0 16 16" aria-hidden="true">
             <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
           </svg>
           <span>@JoeBuildsThings</span>
         </a>
-        <a class="gh-btn" href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer" aria-label="NetRecon Repository">
+        <a class="gh-chip" href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer" aria-label="NetRecon Source Code">
           <svg viewBox="0 0 16 16" aria-hidden="true">
             <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/>
           </svg>
-          <span>gh / NetRecon</span>
+          <span>Source</span>
         </a>
       </div>
     </footer>
@@ -1190,353 +1014,198 @@
 
   <script>
     // =========================================================================
-    // 1. 3D Cartographic Dot-Matrix & Vector Globe Engine
+    // 1. Floating 3D Natural Earth Globe (D3-Geo Orthographic + World-Atlas)
     // =========================================================================
-    (function initCartographicGlobe() {
-      const canvas = document.getElementById('globeCanvas');
-      const stage = document.getElementById('globeStage');
-      const spinToggleBtn = document.getElementById('spinToggleBtn');
-      const lockTargetBtn = document.getElementById('lockTargetBtn');
-      const stateTag = document.getElementById('globeStateTag');
+    (function initFloatingEarth() {
+      const wrap = document.getElementById('earthWrap');
+      const canvas = document.getElementById('earthCanvas');
+      const spinBtn = document.getElementById('spinBtn');
+      const lockBtn = document.getElementById('lockBtn');
+      const coordsEl = document.getElementById('earthCoords');
       const ctx = canvas.getContext('2d');
-
-      // High-detail continental & island coastlines [lon, lat]
-      const LANDMASSES = [
-        // North America + Alaska + Central America
-        [[-168,66],[-162,70],[-141,70],[-125,70],[-110,73],[-94,71],[-82,69],[-78,62],[-65,60],[-56,52],[-60,46],[-70,42],[-75,36],[-81,31],[-81,25],[-83,29],[-90,29],[-97,26],[-96,19],[-88,18],[-84,15],[-79,9],[-84,10],[-92,15],[-104,19],[-110,24],[-114,31],[-117,33],[-122,37],[-124,43],[-124,49],[-135,58],[-148,61],[-152,58],[-162,55],[-166,60],[-168,66]],
-        // Greenland
-        [[-52,60],[-43,60],[-34,66],[-21,70],[-18,77],[-25,82],[-46,83],[-61,76],[-55,68],[-52,60]],
-        // Cuba & Hispaniola
-        [[-85,22],[-79,23],[-74,20],[-78,20],[-85,22]],
-        // South America
-        [[-79,9],[-72,12],[-62,10],[-51,2],[-44,-3],[-35,-6],[-35,-10],[-39,-15],[-41,-22],[-48,-26],[-53,-33],[-58,-38],[-63,-41],[-66,-47],[-68,-54],[-73,-53],[-75,-46],[-72,-36],[-71,-29],[-70,-18],[-76,-14],[-81,-5],[-80,2],[-79,9]],
-        // UK & Ireland
-        [[-6,50],[1,51],[1,53],[-2,56],[-5,58],[-6,55],[-6,50]],
-        [[-10,52],[-6,52],[-6,55],[-10,54],[-10,52]],
-        // Scandinavia
-        [[5,59],[11,59],[13,56],[16,56],[19,60],[21,64],[25,65],[24,60],[29,60],[31,64],[29,70],[20,70],[14,68],[8,63],[5,59]],
-        // Continental Europe + Iberia + Italy + Greece
-        [[-9,37],[-9,43],[-2,43],[-4,48],[2,51],[8,54],[14,54],[20,55],[24,59],[30,60],[40,56],[50,54],[58,67],[60,55],[52,47],[40,45],[32,46],[28,42],[24,38],[22,40],[18,41],[16,38],[13,41],[10,44],[6,43],[3,42],[-1,37],[-6,36],[-9,37]],
-        // Africa
-        [[-17,15],[-13,27],[-6,35],[3,37],[10,37],[11,33],[20,32],[25,31],[32,31],[35,27],[40,20],[43,12],[51,12],[49,5],[41,-2],[40,-10],[36,-18],[35,-24],[31,-30],[26,-34],[19,-34],[17,-29],[14,-22],[12,-15],[12,-6],[9,1],[9,4],[4,4],[-4,5],[-8,4],[-13,9],[-17,15]],
-        // Madagascar
-        [[44,-25],[47,-25],[50,-15],[49,-12],[45,-16],[44,-25]],
-        // Arabian Peninsula & Middle East
-        [[35,31],[37,36],[44,37],[48,30],[51,29],[56,26],[59,22],[54,17],[45,13],[43,13],[39,21],[35,28],[35,31]],
-        // Asia (Siberia, India, SE Asia, China, Korea)
-        [[48,30],[53,37],[60,42],[58,52],[60,68],[72,72],[90,75],[112,74],[135,72],[158,70],[178,66],[163,59],[156,51],[142,54],[136,45],[129,42],[129,35],[126,35],[124,40],[118,39],[122,37],[120,35],[122,31],[119,25],[114,22],[108,21],[109,13],[105,9],[102,13],[100,13],[103,2],[99,8],[98,16],[94,16],[92,22],[88,22],[85,19],[80,13],[78,8],[75,14],[72,20],[68,24],[62,25],[56,26],[51,29],[48,30]],
-        // Japan
-        [[130,32],[134,34],[137,35],[141,38],[141,41],[145,44],[141,45],[139,40],[136,37],[131,34],[130,32]],
-        // Philippines
-        [[120,18],[122,18],[124,13],[126,7],[123,6],[122,11],[120,14],[120,18]],
-        // Sumatra, Java, Borneo, New Guinea
-        [[96,5],[104,-2],[106,-6],[102,-4],[96,2],[96,5]],
-        [[106,-6],[114,-8],[114,-7],[106,-6]],
-        [[109,1],[115,5],[118,4],[116,-3],[111,-3],[109,1]],
-        [[132,-2],[141,-3],[148,-6],[150,-10],[142,-9],[136,-5],[132,-2]],
-        // Australia
-        [[114,-22],[119,-20],[123,-16],[127,-14],[131,-12],[136,-12],[136,-15],[141,-17],[142,-11],[146,-19],[150,-23],[153,-28],[150,-37],[145,-38],[140,-38],[136,-35],[131,-32],[124,-34],[118,-35],[115,-34],[114,-28],[114,-22]],
-        // New Zealand
-        [[172,-35],[175,-37],[178,-38],[175,-41],[172,-41],[172,-35]],
-        [[167,-45],[171,-43],[174,-41],[172,-44],[169,-46],[167,-45]]
-      ];
-
-      // Global IXP & Submarine Cable Hubs [lon, lat, code]
-      const IXP_HUBS = [
-        [-77.49, 39.04, 'IAD'],
-        [-0.12, 51.51, 'LHR'],
-        [8.68, 50.11, 'FRA'],
-        [3.38, 6.52, 'LOS'],
-        [139.69, 35.69, 'NRT'],
-        [103.85, 1.29, 'SIN'],
-        [-46.63, -23.55, 'GRU'],
-        [151.21, -33.87, 'SYD']
-      ];
-
-      // Precompute Fibonacci-lattice surface dot field for 3D depth
-      const SURFACE_DOTS = [];
-      const DOT_COUNT = 520;
-      const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-      for (let i = 0; i < DOT_COUNT; i++) {
-        const y = 1 - (i / (DOT_COUNT - 1)) * 2;
-        const lat = (Math.asin(y) * 180) / Math.PI;
-        const lon = (((i * GOLDEN_ANGLE) * 180) / Math.PI) % 360 - 180;
-        SURFACE_DOTS.push([lon, lat]);
-      }
 
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       let autoSpin = !reducedMotion;
-      let rotLon = 12;
-      let rotLat = 14;
-      let velLon = 0;
-      let velLat = 0;
-      let targetLon = null;
-      let targetLat = null;
-      let pin = null; // { lat, lon, label }
-      let nearestHub = null;
+      let rot = [-18, -16, 0]; // [lambda, phi, gamma]
+      let vel = [0, 0];
+      let targetRot = null;
+      let pin = null; // { lat, lon, city }
+      let worldLand = null;
+      let worldBorders = null;
       let dragging = false;
-      let lastX = 0;
-      let lastY = 0;
-      let tick = 0;
+      let lastPos = [0, 0];
+      let pulse = 0;
 
-      function syncControls() {
-        spinToggleBtn.textContent = autoSpin ? 'PAUSE' : 'SPIN';
-        if (pin && !autoSpin) {
-          stateTag.textContent = 'LOCKED';
-        } else if (autoSpin) {
-          stateTag.textContent = 'ORBIT';
-        } else {
-          stateTag.textContent = 'MANUAL';
-        }
-      }
+      // Load real Natural Earth 110m TopoJSON geometry
+      fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+        .then(r => r.json())
+        .then(topology => {
+          if (window.topojson && topology.objects) {
+            worldLand = topojson.feature(topology, topology.objects.land);
+            worldBorders = topojson.mesh(topology, topology.objects.countries, (a, b) => a !== b);
+          }
+        })
+        .catch(() => {});
 
       function resize() {
-        const rect = stage.getBoundingClientRect();
+        const rect = wrap.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = Math.max(1, Math.floor(rect.width * dpr));
         canvas.height = Math.max(1, Math.floor(rect.height * dpr));
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
-      new ResizeObserver(resize).observe(stage);
+      new ResizeObserver(resize).observe(wrap);
       resize();
 
-      function project(lon, lat, r, cx, cy) {
-        const phi = (lat * Math.PI) / 180;
-        const theta = ((lon - rotLon) * Math.PI) / 180;
-        const tilt = (rotLat * Math.PI) / 180;
-
-        const x0 = r * Math.cos(phi) * Math.sin(theta);
-        const y0 = -r * Math.sin(phi);
-        const z0 = r * Math.cos(phi) * Math.cos(theta);
-
-        const y1 = y0 * Math.cos(tilt) - z0 * Math.sin(tilt);
-        const z1 = y0 * Math.sin(tilt) + z0 * Math.cos(tilt);
-
-        return {
-          x: cx + x0,
-          y: cy + y1,
-          z: z1,
-          nz: z1 / r,
-          visible: z1 > 0
-        };
-      }
-
-      function slerpGeo(lon1, lat1, lon2, lat2, t) {
-        const toRad = Math.PI / 180;
-        const toDeg = 180 / Math.PI;
-        const p1 = lat1 * toRad, l1 = lon1 * toRad;
-        const p2 = lat2 * toRad, l2 = lon2 * toRad;
-
-        const x1 = Math.cos(p1) * Math.cos(l1), y1 = Math.cos(p1) * Math.sin(l1), z1 = Math.sin(p1);
-        const x2 = Math.cos(p2) * Math.cos(l2), y2 = Math.cos(p2) * Math.sin(l2), z2 = Math.sin(p2);
-
-        const dot = Math.max(-1, Math.min(1, x1 * x2 + y1 * y2 + z1 * z2));
-        const omega = Math.acos(dot);
-        if (omega < 0.001) return [lon1, lat1];
-
-        const sinO = Math.sin(omega);
-        const a = Math.sin((1 - t) * omega) / sinO;
-        const b = Math.sin(t * omega) / sinO;
-
-        const x = a * x1 + b * x2;
-        const y = a * y1 + b * y2;
-        const z = a * z1 + b * z2;
-
-        return [Math.atan2(y, x) * toDeg, Math.atan2(z, Math.sqrt(x * x + y * y)) * toDeg];
-      }
+      const graticule = window.d3 ? d3.geoGraticule().step([20, 20])() : null;
 
       function render() {
-        const rect = stage.getBoundingClientRect();
-        const w = rect.width;
-        const h = rect.height;
-        const cx = w / 2;
-        const cy = h / 2;
-        const r = Math.min(w, h) * 0.39;
+        const rect = wrap.getBoundingClientRect();
+        const size = Math.min(rect.width, rect.height);
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const radius = size * 0.41;
 
-        ctx.clearRect(0, 0, w, h);
+        ctx.clearRect(0, 0, rect.width, rect.height);
 
-        // Subtle outer calibration ring
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 12, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([2, 6]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Camera physics: target lock vs inertia vs auto-orbit
-        if (targetLon !== null && targetLat !== null && !dragging && !autoSpin) {
-          const dLon = ((targetLon - rotLon + 540) % 360) - 180;
-          const dLat = targetLat - rotLat;
+        // Camera interpolation & inertia
+        if (targetRot && !dragging && !autoSpin) {
+          const dLon = ((targetRot[0] - rot[0] + 540) % 360) - 180;
+          const dLat = targetRot[1] - rot[1];
           if (Math.abs(dLon) > 0.12 || Math.abs(dLat) > 0.12) {
-            rotLon += dLon * 0.1;
-            rotLat += dLat * 0.1;
+            rot[0] = (rot[0] + dLon * 0.1) % 360;
+            rot[1] = rot[1] + dLat * 0.1;
           } else {
-            rotLon = targetLon;
-            rotLat = targetLat;
-            targetLon = null;
-            targetLat = null;
+            rot[0] = targetRot[0];
+            rot[1] = targetRot[1];
+            targetRot = null;
           }
         } else if (!dragging) {
-          if (Math.abs(velLon) > 0.01 || Math.abs(velLat) > 0.01) {
-            rotLon = (rotLon + velLon) % 360;
-            rotLat = Math.max(-75, Math.min(75, rotLat + velLat));
-            velLon *= 0.92;
-            velLat *= 0.92;
+          if (Math.abs(vel[0]) > 0.01 || Math.abs(vel[1]) > 0.01) {
+            rot[0] = (rot[0] + vel[0]) % 360;
+            rot[1] = Math.max(-75, Math.min(75, rot[1] + vel[1]));
+            vel[0] *= 0.92;
+            vel[1] *= 0.92;
           } else if (autoSpin) {
-            rotLon = (rotLon + 0.18) % 360;
+            rot[0] = (rot[0] + 0.22) % 360;
           }
         }
 
-        tick += 0.035;
+        pulse += 0.05;
 
-        // Sphere directional shading (top-left key light)
-        const sphereGrad = ctx.createRadialGradient(
-          cx - r * 0.35, cy - r * 0.35, r * 0.08,
-          cx, cy, r
-        );
-        sphereGrad.addColorStop(0, '#1B2028');
-        sphereGrad.addColorStop(0.65, '#101216');
-        sphereGrad.addColorStop(1, '#07080A');
-
+        // 1. Soft Outer Atmospheric Glow (gives true floating-in-space depth)
+        const atmo = ctx.createRadialGradient(cx, cy, radius * 0.88, cx, cy, radius * 1.18);
+        atmo.addColorStop(0, 'rgba(56, 189, 248, 0.24)');
+        atmo.addColorStop(0.55, 'rgba(14, 165, 233, 0.08)');
+        atmo.addColorStop(1, 'rgba(9, 11, 14, 0)');
         ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = sphereGrad;
+        ctx.arc(cx, cy, radius * 1.18, 0, Math.PI * 2);
+        ctx.fillStyle = atmo;
         ctx.fill();
 
-        // Crisp rim border
-        ctx.lineWidth = 1.2;
-        ctx.strokeStyle = 'rgba(245, 158, 11, 0.28)';
-        ctx.stroke();
+        // 2. Ocean Sphere with 3D Directional Lighting
+        const ocean = ctx.createRadialGradient(
+          cx - radius * 0.34, cy - radius * 0.34, radius * 0.06,
+          cx, cy, radius
+        );
+        ocean.addColorStop(0, '#1B2A3E');
+        ocean.addColorStop(0.55, '#0F1724');
+        ocean.addColorStop(1, '#070B12');
 
-        // Clip interior of sphere
-        ctx.save();
         ctx.beginPath();
-        ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2);
-        ctx.clip();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = ocean;
+        ctx.fill();
 
-        // 1. Fibonacci dot-matrix surface lattice (depth-attenuated)
-        for (let i = 0; i < SURFACE_DOTS.length; i++) {
-          const [lon, lat] = SURFACE_DOTS[i];
-          const p = project(lon, lat, r, cx, cy);
-          if (p.visible) {
-            const alpha = 0.04 + p.nz * 0.14;
-            ctx.fillStyle = `rgba(161, 167, 179, ${alpha.toFixed(3)})`;
-            ctx.fillRect(p.x - 0.6, p.y - 0.6, 1.2, 1.2);
-          }
-        }
+        if (window.d3) {
+          // True Spherical Orthographic Projection with 90-degree horizon clipping
+          const projection = d3.geoOrthographic()
+            .scale(radius)
+            .translate([cx, cy])
+            .clipAngle(90)
+            .rotate(rot);
 
-        // 2. Equator & Prime Meridian structural lines
-        ctx.lineWidth = 0.8;
-        ctx.strokeStyle = 'rgba(245, 158, 11, 0.16)';
-        ctx.beginPath();
-        let eqStarted = false;
-        for (let lon = -180; lon <= 180; lon += 4) {
-          const p = project(lon, 0, r, cx, cy);
-          if (p.visible) {
-            if (!eqStarted) { ctx.moveTo(p.x, p.y); eqStarted = true; }
-            else { ctx.lineTo(p.x, p.y); }
-          } else {
-            eqStarted = false;
-          }
-        }
-        ctx.stroke();
+          const path = d3.geoPath(projection, ctx);
 
-        // 3. Detailed Continental Landmasses
-        LANDMASSES.forEach(poly => {
-          ctx.beginPath();
-          let visibleCount = 0;
-          for (let i = 0; i < poly.length; i++) {
-            const [lon, lat] = poly[i];
-            const p = project(lon, lat, r, cx, cy);
-            if (p.visible) visibleCount++;
-            if (i === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
-          }
-          if (visibleCount > 0) {
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(243, 244, 246, 0.08)';
-            ctx.fill();
-            ctx.lineWidth = 1.15;
-            ctx.strokeStyle = 'rgba(243, 244, 246, 0.42)';
+          // 3. Latitude / Longitude Graticule
+          if (graticule) {
+            ctx.beginPath();
+            path(graticule);
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.11)';
+            ctx.lineWidth = 0.7;
             ctx.stroke();
           }
-        });
 
-        // 4. Global Backbone IXP Nodes
-        ctx.font = '600 9px "IBM Plex Mono", monospace';
-        IXP_HUBS.forEach(([lon, lat, code]) => {
-          const p = project(lon, lat, r, cx, cy);
-          if (p.visible && p.nz > 0.25) {
-            ctx.fillStyle = 'rgba(245, 158, 11, 0.65)';
-            ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
-            if (p.nz > 0.55) {
-              ctx.fillStyle = 'rgba(161, 167, 179, 0.65)';
-              ctx.fillText(code, p.x + 5, p.y + 3);
-            }
-          }
-        });
-
-        // 5. Geodesic Arc from Nearest IXP Hub to Target Pin
-        if (pin && nearestHub) {
-          ctx.beginPath();
-          let arcStarted = false;
-          for (let step = 0; step <= 32; step++) {
-            const t = step / 32;
-            const [alon, alat] = slerpGeo(nearestHub[0], nearestHub[1], pin.lon, pin.lat, t);
-            const lift = 1 + Math.sin(t * Math.PI) * 0.06;
-            const p = project(alon, alat, r * lift, cx, cy);
-            if (p.visible) {
-              if (!arcStarted) { ctx.moveTo(p.x, p.y); arcStarted = true; }
-              else { ctx.lineTo(p.x, p.y); }
-            } else {
-              arcStarted = false;
-            }
-          }
-          ctx.strokeStyle = 'rgba(245, 158, 11, 0.75)';
-          ctx.lineWidth = 1.3;
-          ctx.setLineDash([3, 3]);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-
-        // 6. Locked Target Crosshair Beacon
-        if (pin) {
-          const pt = project(pin.lon, pin.lat, r, cx, cy);
-          if (pt.visible) {
-            const pulseR = 6 + Math.sin(tick * 1.4) * 4;
+          // 4. Natural Earth Continents
+          if (worldLand) {
             ctx.beginPath();
-            ctx.arc(pt.x, pt.y, pulseR, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(239, 68, 68, 0.55)';
+            path(worldLand);
+            ctx.fillStyle = '#1E293B';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
+          }
+
+          // 5. Subtle Country Borders
+          if (worldBorders) {
+            ctx.beginPath();
+            path(worldBorders);
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
+            ctx.lineWidth = 0.55;
+            ctx.stroke();
+          }
+
+          // 6. Geodesic Arc & Pulsing Target Beacon
+          if (pin) {
+            const origin = [3.38, 6.52]; // Lagos reference origin
+            const arcLine = {
+              type: 'LineString',
+              coordinates: [origin, [pin.lon, pin.lat]]
+            };
+            ctx.beginPath();
+            path(arcLine);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
             ctx.lineWidth = 1.4;
+            ctx.setLineDash([4, 4]);
             ctx.stroke();
+            ctx.setLineDash([]);
 
-            // Crosshair ticks
-            ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(pt.x - 10, pt.y);
-            ctx.lineTo(pt.x - 4, pt.y);
-            ctx.moveTo(pt.x + 4, pt.y);
-            ctx.lineTo(pt.x + 10, pt.y);
-            ctx.moveTo(pt.x, pt.y - 10);
-            ctx.lineTo(pt.x, pt.y - 4);
-            ctx.moveTo(pt.x, pt.y + 4);
-            ctx.lineTo(pt.x, pt.y + 10);
-            ctx.stroke();
+            // Check if pin is on visible front hemisphere
+            const dist = d3.geoDistance([pin.lon, pin.lat], [-rot[0], -rot[1]]);
+            if (dist < Math.PI / 2) {
+              const projected = projection([pin.lon, pin.lat]);
+              if (projected) {
+                const [px, py] = projected;
+                const ring = 6 + Math.sin(pulse) * 4;
 
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
-            ctx.fillStyle = '#EF4444';
-            ctx.fill();
-            ctx.strokeStyle = '#FFFFFF';
-            ctx.lineWidth = 1.2;
-            ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(px, py, ring, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+                ctx.lineWidth = 1.6;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#F59E0B';
+                ctx.fill();
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 1.3;
+                ctx.stroke();
+              }
+            }
           }
         }
 
-        ctx.restore();
+        // 7. Crisp Atmospheric Fresnel Inner Rim
+        const rim = ctx.createRadialGradient(cx, cy, radius * 0.86, cx, cy, radius);
+        rim.addColorStop(0, 'rgba(56, 189, 248, 0)');
+        rim.addColorStop(1, 'rgba(56, 189, 248, 0.28)');
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = rim;
+        ctx.fill();
 
         if (!document.hidden) {
           requestAnimationFrame(render);
@@ -1547,139 +1216,122 @@
         if (!document.hidden) requestAnimationFrame(render);
       });
 
-      stage.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('button, a')) return;
+      wrap.addEventListener('pointerdown', (e) => {
         dragging = true;
-        velLon = 0;
-        velLat = 0;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        stage.setPointerCapture(e.pointerId);
+        vel = [0, 0];
+        lastPos = [e.clientX, e.clientY];
+        wrap.setPointerCapture(e.pointerId);
       });
 
-      stage.addEventListener('pointermove', (e) => {
+      wrap.addEventListener('pointermove', (e) => {
         if (!dragging) return;
-        const dx = e.clientX - lastX;
-        const dy = e.clientY - lastY;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        velLon = -dx * 0.42;
-        velLat = dy * 0.32;
-        rotLon = (rotLon + velLon) % 360;
-        rotLat = Math.max(-75, Math.min(75, rotLat + velLat));
+        const dx = e.clientX - lastPos[0];
+        const dy = e.clientY - lastPos[1];
+        lastPos = [e.clientX, e.clientY];
+        vel = [dx * 0.35, -dy * 0.3];
+        rot[0] = (rot[0] + vel[0]) % 360;
+        rot[1] = Math.max(-75, Math.min(75, rot[1] + vel[1]));
       });
 
-      stage.addEventListener('pointerup', (e) => {
+      wrap.addEventListener('pointerup', (e) => {
         if (!dragging) return;
         dragging = false;
-        try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+        try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
       });
 
-      spinToggleBtn.addEventListener('click', () => {
+      spinBtn.addEventListener('click', () => {
         autoSpin = !autoSpin;
+        spinBtn.textContent = autoSpin ? 'Pause' : 'Orbit';
         if (!autoSpin && pin) {
-          targetLon = pin.lon;
-          targetLat = pin.lat;
+          targetRot = [-pin.lon, -pin.lat];
         }
-        syncControls();
       });
 
-      lockTargetBtn.addEventListener('click', () => {
+      lockBtn.addEventListener('click', () => {
         if (!pin) return;
         autoSpin = false;
-        targetLon = pin.lon;
-        targetLat = pin.lat;
-        syncControls();
+        spinBtn.textContent = 'Orbit';
+        targetRot = [-pin.lon, -pin.lat];
       });
 
-      window.lockGlobeTarget = function(lat, lon, label) {
+      window.focusEarth = function(lat, lon, city) {
         const nLat = Number(lat) || 0;
         const nLon = Number(lon) || 0;
-        pin = { lat: nLat, lon: nLon, label: label || '' };
-
-        // Find nearest IXP hub for geodesic arc
-        let best = IXP_HUBS[0];
-        let bestDist = Infinity;
-        IXP_HUBS.forEach(hub => {
-          const d = Math.hypot(hub[0] - nLon, hub[1] - nLat);
-          if (d < bestDist) {
-            bestDist = d;
-            best = hub;
-          }
-        });
-        nearestHub = best;
-
+        pin = { lat: nLat, lon: nLon, city: city || '' };
         autoSpin = false;
-        velLon = 0;
-        velLat = 0;
-        targetLon = nLon;
-        targetLat = nLat;
-        lockTargetBtn.style.display = 'inline-block';
-        syncControls();
+        vel = [0, 0];
+        spinBtn.textContent = 'Orbit';
+        lockBtn.style.display = 'inline-block';
+        targetRot = [-nLon, -nLat];
+
+        const latStr = `${Math.abs(nLat).toFixed(2)}° ${nLat >= 0 ? 'N' : 'S'}`;
+        const lonStr = `${Math.abs(nLon).toFixed(2)}° ${nLon >= 0 ? 'E' : 'W'}`;
+        coordsEl.textContent = city ? `${city} · ${latStr}, ${lonStr}` : `${latStr}, ${lonStr}`;
       };
 
-      syncControls();
+      spinBtn.textContent = autoSpin ? 'Pause' : 'Orbit';
       requestAnimationFrame(render);
     })();
 
     // =========================================================================
-    // 2. NetRecon Telemetry Controller
+    // 2. NetRecon Workbench Controller
     // =========================================================================
     const scanForm = document.getElementById('scanForm');
     const targetInput = document.getElementById('targetInput');
     const scanBtn = document.getElementById('scanBtn');
-    const scanBtnLabel = document.getElementById('scanBtnLabel');
-    const alertBar = document.getElementById('alertBar');
-    const ledDot = document.getElementById('ledDot');
-    const statusText = document.getElementById('statusText');
+    const scanBtnText = document.getElementById('scanBtnText');
+    const errorToast = document.getElementById('errorToast');
+    const statusDot = document.getElementById('statusDot');
+    const statusLabel = document.getElementById('statusLabel');
     const copyMdBtn = document.getElementById('copyMdBtn');
     const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const recentBar = document.getElementById('recentBar');
 
-    let currentData = null;
-    const STORAGE_KEY = 'netrecon_history_v2';
+    let latestData = null;
+    const HIST_KEY = 'netrecon_recent_v2';
 
-    function esc(v) {
-      return String(v ?? '')
+    function esc(val) {
+      return String(val ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
 
-    function setStatus(mode, label) {
-      ledDot.className = 'led' + (mode ? ' ' + mode : '');
-      statusText.textContent = label;
+    function setStatus(cls, text) {
+      statusDot.className = 'dot' + (cls ? ' ' + cls : '');
+      statusLabel.textContent = text;
     }
 
-    function showAlert(msg) {
-      alertBar.textContent = 'ERR // ' + msg;
-      alertBar.classList.add('show');
-      setStatus('err', 'ERROR');
+    function showError(msg) {
+      errorToast.textContent = msg;
+      errorToast.classList.add('visible');
+      setStatus('error', 'FAILED');
     }
 
-    function clearAlert() {
-      alertBar.textContent = '';
-      alertBar.classList.remove('show');
+    function clearError() {
+      errorToast.textContent = '';
+      errorToast.classList.remove('visible');
     }
 
-    document.querySelectorAll('.tab').forEach(btn => {
+    document.querySelectorAll('.tab-pill').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.panel-body').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
         btn.classList.add('active');
-        document.getElementById('pane-' + btn.dataset.tab).classList.add('active');
+        document.getElementById('view-' + btn.dataset.tab).classList.add('active');
       });
     });
 
-    document.querySelectorAll('.preset-chip[data-target]').forEach(chip => {
-      chip.addEventListener('click', () => {
-        targetInput.value = chip.dataset.target;
-        executeScan(chip.dataset.target);
+    document.querySelectorAll('.pill-btn[data-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        targetInput.value = btn.dataset.target;
+        runScan(btn.dataset.target);
       });
     });
 
-    function renderPayload(data) {
-      currentData = data;
+    function renderScan(data) {
+      latestData = data;
       copyMdBtn.disabled = false;
       exportJsonBtn.disabled = false;
 
@@ -1689,155 +1341,144 @@
       const d = data.dns;
       const w = data.web;
 
-      // Telemetry Strip
-      document.getElementById('kpiIp').textContent = t.primary_ip;
-      document.getElementById('kpiPtr').textContent = (d.ptr && d.ptr.length) ? d.ptr[0] : (t.is_ip ? 'NO PTR' : t.host);
+      // Summary Cards
+      document.getElementById('mIp').textContent = t.primary_ip;
+      document.getElementById('mPtr').textContent = (d.ptr && d.ptr.length) ? d.ptr[0] : (t.is_ip ? 'No PTR' : t.host);
 
-      document.getElementById('kpiAsn').textContent = g.asn || 'N/A';
-      document.getElementById('kpiOrg').textContent = g.org || g.isp || '—';
+      document.getElementById('mAsn').textContent = g.asn || 'N/A';
+      document.getElementById('mOrg').textContent = g.org || g.isp || '—';
 
-      document.getElementById('kpiPorts').textContent = `${p.open_count} OPEN`;
-      document.getElementById('kpiPortsMeta').textContent = `${p.scanned_count} PROBED · ${p.scan_ms} MS`;
-      document.getElementById('tabPortCount').textContent = `[${p.open_count}]`;
+      document.getElementById('mPorts').textContent = `${p.open_count} Open`;
+      document.getElementById('mPortsSub').textContent = `${p.scanned_count} probed · ${p.scan_ms} ms`;
+      document.getElementById('cPorts').textContent = `(${p.open_count})`;
 
-      document.getElementById('kpiGrade').textContent = w.grade || 'N/A';
-      document.getElementById('kpiTls').textContent = (w.tls && w.tls.available)
-        ? `${w.tls.protocol} · ${w.tls.days_remaining}D`
-        : (w.reachable ? 'HTTP ONLY' : 'NO WEB');
+      document.getElementById('mGrade').textContent = w.grade || 'N/A';
+      document.getElementById('mTls').textContent = (w.tls && w.tls.available)
+        ? `${w.tls.protocol} · ${w.tls.days_remaining}d left`
+        : (w.reachable ? 'HTTP only' : 'No web listener');
 
-      // Globe & Geo
-      const latNum = Number(g.latitude || 0);
-      const lonNum = Number(g.longitude || 0);
-      const latDir = `${Math.abs(latNum).toFixed(2)}° ${latNum >= 0 ? 'N' : 'S'}`;
-      const lonDir = `${Math.abs(lonNum).toFixed(2)}° ${lonNum >= 0 ? 'E' : 'W'}`;
-      document.getElementById('hudCoords').textContent = `${latDir}, ${lonDir}`;
-      document.getElementById('hudCity').textContent = `${g.city}, ${g.country_code || g.country}`.toUpperCase();
+      // Globe & Map Link
+      const locText = [g.city, g.country_code || g.country].filter(Boolean).join(', ');
+      const mapLink = document.getElementById('mapLink');
+      mapLink.href = `https://www.openstreetmap.org/?mlat=${g.latitude}&mlon=${g.longitude}#map=10/${g.latitude}/${g.longitude}`;
+      mapLink.style.display = 'inline-block';
 
-      document.getElementById('geoCity').textContent = [g.city, g.region].filter(Boolean).join(', ') || '—';
-      document.getElementById('geoCountry').textContent = g.country || '—';
-      document.getElementById('geoTz').textContent = g.timezone || '—';
-      document.getElementById('geoIps').textContent = (t.all_ips || [t.primary_ip]).join(', ');
-
-      const extMapLink = document.getElementById('extMapLink');
-      extMapLink.href = `https://www.openstreetmap.org/?mlat=${g.latitude}&mlon=${g.longitude}#map=10/${g.latitude}/${g.longitude}`;
-      extMapLink.style.display = 'inline-block';
-
-      if (window.lockGlobeTarget) {
-        window.lockGlobeTarget(g.latitude, g.longitude, g.city);
+      if (window.focusEarth) {
+        window.focusEarth(g.latitude, g.longitude, locText);
       }
 
-      // 1. Ports Table
-      const portsStandby = document.getElementById('portsStandby');
-      const portsTableWrap = document.getElementById('portsTableWrap');
-      const portsTbody = document.getElementById('portsTbody');
+      // 1. Ports Tab
+      const portsEmpty = document.getElementById('portsEmpty');
+      const portsTableBox = document.getElementById('portsTableBox');
+      const portsBody = document.getElementById('portsBody');
 
       if (!p.open_ports || !p.open_ports.length) {
-        portsTableWrap.style.display = 'none';
-        portsStandby.style.display = 'block';
-        portsStandby.textContent = `0 OPEN PORTS (${p.scanned_count} PROBED · ${p.scan_ms} MS)`;
+        portsTableBox.style.display = 'none';
+        portsEmpty.style.display = 'block';
+        portsEmpty.textContent = `0 open ports across ${p.scanned_count} probed services (${p.scan_ms} ms).`;
       } else {
-        portsStandby.style.display = 'none';
-        portsTableWrap.style.display = 'block';
-        portsTbody.innerHTML = p.open_ports.map(row => {
-          const cls = row.risk === 'high' ? 'tag-high' : (row.risk === 'warn' ? 'tag-warn' : 'tag-neutral');
-          const banner = row.banner ? esc(row.banner) : `<span style="color:var(--ink-3);">${esc(row.note)}</span>`;
+        portsEmpty.style.display = 'none';
+        portsTableBox.style.display = 'block';
+        portsBody.innerHTML = p.open_ports.map(row => {
+          const badgeCls = row.risk === 'high' ? 'badge-red' : (row.risk === 'warn' ? 'badge-amber' : 'badge-blue');
+          const banner = row.banner ? esc(row.banner) : `<span style="color:var(--ink-muted);">${esc(row.note)}</span>`;
           return `
             <tr>
-              <td class="mono" style="font-weight:700;color:var(--green);">${esc(row.port)}/TCP</td>
+              <td class="mono" style="font-weight:700;color:var(--green);">${esc(row.port)}/tcp</td>
               <td class="mono">${esc(row.service)}</td>
-              <td><span class="tag ${cls}">${esc(row.risk)}</span></td>
-              <td class="mono" style="color:var(--ink-2);">${esc(row.latency_ms)} ms</td>
-              <td class="banner-cell">${banner}</td>
+              <td><span class="badge ${badgeCls}">${esc(row.risk)}</span></td>
+              <td class="mono" style="color:var(--ink-secondary);">${esc(row.latency_ms)} ms</td>
+              <td class="banner-col">${banner}</td>
             </tr>
           `;
         }).join('');
       }
 
-      // 2. DNS View
-      document.getElementById('dnsStandby').style.display = 'none';
-      document.getElementById('dnsView').style.display = 'block';
+      // 2. DNS Tab
+      document.getElementById('dnsEmpty').style.display = 'none';
+      document.getElementById('dnsBox').style.display = 'block';
 
       const pos = d.posture || {};
-      document.getElementById('dnsPostureGrid').innerHTML = `
-        <div class="kv-cell">
-          <div class="kv-k">DNS PROVIDER</div>
-          <div class="kv-v">${esc(pos.dns_provider || '—')}</div>
+      document.getElementById('dnsSummaryGrid').innerHTML = `
+        <div class="info-tile">
+          <div class="info-tile-k">DNS Provider</div>
+          <div class="info-tile-v">${esc(pos.dns_provider || '—')}</div>
         </div>
-        <div class="kv-cell">
-          <div class="kv-k">MAIL INFRA</div>
-          <div class="kv-v">${esc(pos.mail_provider || '—')}</div>
+        <div class="info-tile">
+          <div class="info-tile-k">Mail Provider</div>
+          <div class="info-tile-v">${esc(pos.mail_provider || '—')}</div>
         </div>
-        <div class="kv-cell">
-          <div class="kv-k">SPF</div>
-          <div class="kv-v">${pos.spf_configured ? '<span class="tag tag-ok">ACTIVE</span>' : '<span class="tag tag-warn">MISSING</span>'}</div>
+        <div class="info-tile">
+          <div class="info-tile-k">SPF</div>
+          <div class="info-tile-v">${pos.spf_configured ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Missing</span>'}</div>
         </div>
-        <div class="kv-cell">
-          <div class="kv-k">DMARC</div>
-          <div class="kv-v">${pos.dmarc_configured ? '<span class="tag tag-ok">ACTIVE</span>' : '<span class="tag tag-warn">MISSING</span>'}</div>
+        <div class="info-tile">
+          <div class="info-tile-k">DMARC</div>
+          <div class="info-tile-v">${pos.dmarc_configured ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Missing</span>'}</div>
         </div>
       `;
 
-      const types = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'DMARC'];
-      let totalRecs = 0;
-      const dnsHtml = types.map(type => {
+      const recTypes = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'DMARC'];
+      let recTotal = 0;
+      const dnsHtml = recTypes.map(type => {
         const list = (d.records && d.records[type]) || [];
-        totalRecs += list.length;
+        recTotal += list.length;
         if (!list.length) return '';
         return `
-          <div class="dns-block">
-            <div class="dns-block-head"><span>${type}</span><span>${list.length}</span></div>
-            ${list.map(v => `<div class="dns-val">${esc(v)}</div>`).join('')}
+          <div class="dns-section">
+            <div class="dns-section-head"><span>${type}</span><span>${list.length}</span></div>
+            ${list.map(v => `<div class="dns-item">${esc(v)}</div>`).join('')}
           </div>
         `;
       }).join('');
 
-      document.getElementById('tabDnsCount').textContent = `[${totalRecs}]`;
-      document.getElementById('dnsRecordsContainer').innerHTML = dnsHtml || '<div class="standby-box">NO DNS RECORDS</div>';
+      document.getElementById('cDns').textContent = `(${recTotal})`;
+      document.getElementById('dnsGroups').innerHTML = dnsHtml || '<div class="empty-box">No public DNS records found.</div>';
 
-      // 3. TLS & HTTP Audit
-      document.getElementById('webStandby').style.display = 'none';
-      document.getElementById('webView').style.display = 'block';
+      // 3. TLS & Headers Tab
+      document.getElementById('webEmpty').style.display = 'none';
+      document.getElementById('webBox').style.display = 'block';
 
       const score = Number(w.score || 0);
-      document.getElementById('scoreText').textContent = `${score} / 100 (${w.grade || 'N/A'})`;
-      const scoreFill = document.getElementById('scoreFill');
-      scoreFill.style.width = `${Math.max(0, Math.min(100, score))}%`;
-      scoreFill.style.background = score >= 75 ? 'var(--green)' : (score >= 45 ? 'var(--amber)' : 'var(--red)');
+      document.getElementById('scoreLabel').textContent = `${score} / 100 (${w.grade || 'N/A'})`;
+      const scoreBar = document.getElementById('scoreBar');
+      scoreBar.style.width = `${Math.max(0, Math.min(100, score))}%`;
+      scoreBar.style.background = score >= 75 ? 'var(--green)' : (score >= 45 ? 'var(--amber)' : 'var(--red)');
 
       const tls = w.tls || {};
-      document.getElementById('tlsGrid').innerHTML = tls.available ? `
-        <div class="kv-cell">
-          <div class="kv-k">PROTOCOL / CIPHER</div>
-          <div class="kv-v">${esc(tls.protocol)} · ${esc(tls.cipher)}</div>
+      document.getElementById('tlsInfoGrid').innerHTML = tls.available ? `
+        <div class="info-tile">
+          <div class="info-tile-k">TLS / Cipher</div>
+          <div class="info-tile-v">${esc(tls.protocol)} · ${esc(tls.cipher)}</div>
         </div>
-        <div class="kv-cell">
-          <div class="kv-k">ISSUER CA</div>
-          <div class="kv-v">${esc(tls.issuer)}</div>
+        <div class="info-tile">
+          <div class="info-tile-k">Issuer</div>
+          <div class="info-tile-v">${esc(tls.issuer)}</div>
         </div>
-        <div class="kv-cell">
-          <div class="kv-k">COMMON NAME (${esc(tls.san_count)} SANS)</div>
-          <div class="kv-v">${esc(tls.common_name)}</div>
+        <div class="info-tile">
+          <div class="info-tile-k">Subject (${esc(tls.san_count)} SANs)</div>
+          <div class="info-tile-v">${esc(tls.common_name)}</div>
         </div>
-        <div class="kv-cell">
-          <div class="kv-k">EXPIRY</div>
-          <div class="kv-v">${esc(tls.days_remaining)} DAYS</div>
+        <div class="info-tile">
+          <div class="info-tile-k">Expiry</div>
+          <div class="info-tile-v">${esc(tls.days_remaining)} days</div>
         </div>
       ` : `
-        <div class="kv-cell" style="grid-column: 1 / -1;">
-          <div class="kv-k">TLS CERTIFICATE</div>
-          <div class="kv-v" style="color:var(--ink-2);">NONE ON 443/TCP</div>
+        <div class="info-tile" style="grid-column: 1 / -1;">
+          <div class="info-tile-k">TLS Certificate</div>
+          <div class="info-tile-v" style="color:var(--ink-secondary);">No active TLS certificate on 443/tcp</div>
         </div>
       `;
 
-      const headersTbody = document.getElementById('headersTbody');
+      const headersBody = document.getElementById('headersBody');
       if (!w.reachable || !w.headers || !w.headers.length) {
-        headersTbody.innerHTML = '<tr><td colspan="3" class="mono" style="color:var(--ink-3);">NO HTTP RESPONSE</td></tr>';
+        headersBody.innerHTML = '<tr><td colspan="3" class="mono" style="color:var(--ink-muted);">No HTTP response</td></tr>';
       } else {
         let rows = w.headers.map(h => `
           <tr>
             <td class="mono" style="font-weight:600;">${esc(h.label)}</td>
-            <td>${h.present ? '<span class="tag tag-ok">PASS</span>' : '<span class="tag tag-warn">MISSING</span>'}</td>
-            <td class="banner-cell">${h.present ? esc(h.value) : '<span style="color:var(--ink-3);">—</span>'}</td>
+            <td>${h.present ? '<span class="badge badge-green">Pass</span>' : '<span class="badge badge-amber">Missing</span>'}</td>
+            <td class="banner-col">${h.present ? esc(h.value) : '<span style="color:var(--ink-muted);">—</span>'}</td>
           </tr>
         `).join('');
 
@@ -1845,74 +1486,64 @@
           rows += w.disclosures.map(leak => `
             <tr>
               <td class="mono" style="color:var(--amber);">${esc(leak.header)}</td>
-              <td><span class="tag tag-high">EXPOSED</span></td>
-              <td class="banner-cell">${esc(leak.value)}</td>
+              <td><span class="badge badge-red">Exposed</span></td>
+              <td class="banner-col">${esc(leak.value)}</td>
             </tr>
           `).join('');
         }
-        headersTbody.innerHTML = rows;
+        headersBody.innerHTML = rows;
       }
 
-      // 4. Raw JSON
-      document.getElementById('rawPre').textContent = JSON.stringify(data, null, 2);
+      // 4. Raw JSON Tab
+      document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
     }
 
-    function recordHistory(data) {
+    function pushHistory(data) {
       try {
-        const prev = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        const item = {
+        const list = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
+        const entry = {
           host: data.target.host,
-          ip: data.target.primary_ip,
-          cc: data.geo.country_code || data.geo.country,
-          ports: data.ports.open_count,
           grade: data.web.grade
         };
-        const next = [item, ...prev.filter(x => x.host !== item.host)].slice(0, 7);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        drawHistory();
+        const next = [entry, ...list.filter(x => x.host !== entry.host)].slice(0, 6);
+        localStorage.setItem(HIST_KEY, JSON.stringify(next));
+        renderHistory();
       } catch (_) {}
     }
 
-    function drawHistory() {
-      const box = document.getElementById('historyList');
+    function renderHistory() {
       try {
-        const list = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const list = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
         if (!list.length) {
-          box.innerHTML = '<div class="standby-box" style="padding:18px 10px;">NO SCANS</div>';
+          recentBar.classList.remove('has-items');
+          recentBar.innerHTML = '';
           return;
         }
-        box.innerHTML = list.map(item => `
-          <div class="hist-item" data-host="${esc(item.host)}">
-            <div style="min-width:0;">
-              <div class="hist-host">${esc(item.host)}</div>
-              <div class="hist-sub">${esc(item.ip)} · ${esc(item.cc)}</div>
-            </div>
-            <div class="hist-sub">${esc(item.ports)}P · ${esc(item.grade)}</div>
-          </div>
+        recentBar.classList.add('has-items');
+        recentBar.innerHTML = '<span class="quick-label">Recent</span>' + list.map(item => `
+          <button type="button" class="hist-pill" data-host="${esc(item.host)}">
+            <span>${esc(item.host)}</span>
+            <span style="color:var(--ink-muted);">${esc(item.grade)}</span>
+          </button>
         `).join('');
 
-        box.querySelectorAll('.hist-item').forEach(el => {
-          el.addEventListener('click', () => {
-            targetInput.value = el.dataset.host;
-            executeScan(el.dataset.host);
+        recentBar.querySelectorAll('.hist-pill').forEach(btn => {
+          btn.addEventListener('click', () => {
+            targetInput.value = btn.dataset.host;
+            runScan(btn.dataset.host);
           });
         });
       } catch (_) {}
     }
 
-    document.getElementById('clearHistBtn').addEventListener('click', () => {
-      try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
-      drawHistory();
-    });
-
-    async function executeScan(raw) {
+    async function runScan(raw) {
       const target = (raw || targetInput.value || '').trim();
       if (!target) return;
 
-      clearAlert();
+      clearError();
       scanBtn.disabled = true;
-      scanBtnLabel.textContent = 'PROBING...';
-      setStatus('busy', 'PROBING');
+      scanBtnText.textContent = 'Scanning...';
+      setStatus('scanning', 'PROBING');
 
       try {
         const res = await fetch('/api/recon', {
@@ -1922,28 +1553,28 @@
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          showAlert(data.error || 'Probe failed.');
+          showError(data.error || 'Scan failed');
           return;
         }
-        renderPayload(data);
-        recordHistory(data);
-        setStatus('', `${data.elapsed_ms} MS`);
+        renderScan(data);
+        pushHistory(data);
+        setStatus('', `${data.elapsed_ms} ms`);
       } catch (_) {
-        showAlert('Network error contacting /api/recon.');
+        showError('Network error contacting /api/recon');
       } finally {
         scanBtn.disabled = false;
-        scanBtnLabel.textContent = 'SCAN TARGET';
+        scanBtnText.textContent = 'Scan Target';
       }
     }
 
     scanForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      executeScan(targetInput.value);
+      runScan(targetInput.value);
     });
 
     copyMdBtn.addEventListener('click', async () => {
-      if (!currentData) return;
-      const d = currentData;
+      if (!latestData) return;
+      const d = latestData;
       const ports = d.ports.open_ports.length
         ? d.ports.open_ports.map(p => `${p.port}/${p.service} (${p.latency_ms}ms)`).join(', ')
         : 'None';
@@ -1958,25 +1589,25 @@
 
       try {
         await navigator.clipboard.writeText(md);
-        copyMdBtn.textContent = 'COPIED';
-        setTimeout(() => { copyMdBtn.textContent = 'COPY MD'; }, 1400);
+        copyMdBtn.textContent = 'Copied';
+        setTimeout(() => { copyMdBtn.textContent = 'Copy Markdown'; }, 1400);
       } catch (_) {}
     });
 
     exportJsonBtn.addEventListener('click', () => {
-      if (!currentData) return;
-      const blob = new Blob([JSON.stringify(currentData, null, 2)], { type: 'application/json' });
+      if (!latestData) return;
+      const blob = new Blob([JSON.stringify(latestData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `netrecon-${currentData.target.host}.json`;
+      a.download = `netrecon-${latestData.target.host}.json`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     });
 
-    drawHistory();
+    renderHistory();
   </script>
 </body>
 </html>
