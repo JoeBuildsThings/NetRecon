@@ -18,7 +18,12 @@
         .label { color: #888; }
         .error { color: #ff3333; text-align: center; margin-top: 15px; font-weight: bold; }
         .ports { color: #00ff41; font-weight: bold; }
-        #map { height: 300px; width: 100%; margin-top: 15px; border: 1px solid #333; border-radius: 4px; }
+        
+        /* The Map Container */
+        #map { height: 300px; width: 100%; margin-top: 15px; border: 1px solid #333; border-radius: 4px; background: #000; }
+        
+        /* The CSS Hack: Invert the colors to make it dark mode */
+        .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
     </style>
 </head>
 <body>
@@ -47,19 +52,16 @@
             <div id="map"></div>
             <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
             <script>
-                // Grab lat/lon from Flask
                 var lat = {{ data.lat }};
                 var lon = {{ data.lon }};
                 
-                // Init map
                 var map = L.map('map').setView([lat, lon], 10);
                 
-                // Dark theme map tiles
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '&copy; OpenStreetMap &copy; CARTO'
+                // OpenStreetMap tiles (No API Key required)
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
                 
-                // Drop the pin
                 L.marker([lat, lon]).addTo(map)
                     .bindPopup("<b>{{ data.query }}</b><br>{{ data.city }}")
                     .openPopup();
