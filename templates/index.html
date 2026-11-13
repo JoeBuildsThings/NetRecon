@@ -1,72 +1,1676 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetRecon</title>
-    <!-- Leaflet Map CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { background-color: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding-top: 5vh; margin: 0; }
-        .container { background: #111; padding: 30px; border: 1px solid #00ff41; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 255, 65, 0.2); width: 90%; max-width: 700px; }
-        h1 { text-align: center; text-transform: uppercase; letter-spacing: 4px; margin-top: 0; }
-        input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; background: #000; border: 1px solid #00ff41; color: #00ff41; font-family: inherit; font-size: 16px; box-sizing: border-box; outline: none; }
-        button { width: 100%; padding: 12px; background: #00ff41; color: #000; border: none; font-weight: bold; font-family: inherit; font-size: 16px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
-        button:hover { background: #00cc33; }
-        .result { margin-top: 20px; border-top: 1px dashed #00ff41; padding-top: 20px; }
-        .result p { margin: 8px 0; font-size: 14px; }
-        .label { color: #888; }
-        .error { color: #ff3333; text-align: center; margin-top: 15px; font-weight: bold; }
-        .ports { color: #00ff41; font-weight: bold; }
-        
-        /* The Map Container */
-        #map { height: 300px; width: 100%; margin-top: 15px; border: 1px solid #333; border-radius: 4px; background: #000; }
-        
-        /* The CSS Hack: Invert the colors to make it dark mode */
-        .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#090C10" />
+  <title>NetRecon — Network &amp; Attack-Surface Reconnaissance Workbench</title>
+  <style>
+    :root {
+      --bg: #090C10;
+      --surface: #0F141C;
+      --surface-alt: #151C27;
+      --surface-hover: #1B2432;
+      --border: #1F2937;
+      --border-strong: #2D3B4E;
+      --ink: #F3F4F6;
+      --ink-muted: #9CA3AF;
+      --ink-dim: #6B7280;
+      --cyan: #38BDF8;
+      --cyan-soft: rgba(56, 189, 248, 0.12);
+      --emerald: #10B981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --amber: #F59E0B;
+      --amber-soft: rgba(245, 158, 11, 0.14);
+      --red: #EF4444;
+      --red-soft: rgba(239, 68, 68, 0.14);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font-display: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .app-shell {
+        padding: 24px;
+      }
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-alt);
+      border: 1px solid var(--border-strong);
+      display: grid;
+      place-items: center;
+      color: var(--cyan);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .version-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--cyan-soft);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .brand-sub {
+      margin: 0;
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+    .status-dot.scanning {
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      animation: pulse 1s infinite;
+    }
+    .status-dot.error {
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+
+    .command-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .scan-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    @media (min-width: 640px) {
+      .scan-form {
+        flex-direction: row;
+        align-items: stretch;
+      }
+    }
+
+    .input-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .input-prefix {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--cyan);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .target-input {
+      width: 100%;
+      height: 46px;
+      padding: 0 14px 0 34px;
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .target-input::placeholder {
+      color: var(--ink-dim);
+    }
+
+    .target-input:focus {
+      border-color: var(--cyan);
+    }
+
+    .btn-primary {
+      height: 46px;
+      padding: 0 22px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--cyan);
+      color: #061019;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      opacity: 0.92;
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .command-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .preset-label {
+      font-size: 12px;
+      color: var(--ink-dim);
+      margin-right: 2px;
+    }
+
+    .chip-btn {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 5px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+      cursor: pointer;
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .chip-btn:hover {
+      border-color: var(--cyan);
+      color: var(--ink);
+    }
+
+    .export-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn-ghost {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 6px 11px;
+      border-radius: 5px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      border-color: var(--border-strong);
+      background: var(--surface-hover);
+    }
+
+    .btn-ghost:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .error-banner {
+      display: none;
+      margin-top: 12px;
+      padding: 11px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--red-soft);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #FCA5A5;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .error-banner.visible {
+      display: block;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    @media (min-width: 640px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .kpi-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      min-width: 0;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-dim);
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kpi-sub {
+      margin-top: 4px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+      flex: 1;
+    }
+
+    @media (min-width: 1024px) {
+      .bento-grid {
+        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+        align-items: start;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(21, 28, 39, 0.55);
+    }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+
+    .tabs {
+      display: flex;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-alt);
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab-btn {
+      flex: 0 0 auto;
+      padding: 11px 15px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--ink-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--ink);
+    }
+
+    .tab-btn.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    .tab-pane {
+      display: none;
+      padding: 16px;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--ink-dim);
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid rgba(31, 41, 55, 0.65);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-info {
+      background: var(--cyan-soft);
+      color: var(--cyan);
+    }
+    .badge-pass {
+      background: var(--emerald-soft);
+      color: var(--emerald);
+    }
+    .badge-warn {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+    .badge-high {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .banner-text {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink-muted);
+      word-break: break-all;
+      max-width: 280px;
+    }
+
+    .posture-strip {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (min-width: 540px) {
+      .posture-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .mini-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+
+    .mini-box-label {
+      font-size: 11px;
+      color: var(--ink-dim);
+      margin-bottom: 3px;
+    }
+
+    .mini-box-val {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      word-break: break-word;
+    }
+
+    .dns-group {
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .dns-group-head {
+      background: var(--surface-alt);
+      padding: 7px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--cyan);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .dns-record-row {
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink);
+      border-top: 1px solid var(--border);
+      word-break: break-all;
+    }
+
+    .json-box {
+      margin: 0;
+      padding: 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.55;
+      color: #CBD5E1;
+      max-height: 420px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .right-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .globe-stage {
+      position: relative;
+      width: 100%;
+      height: 245px;
+      background: radial-gradient(circle at 50% 48%, #121B29 0%, #090C10 78%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      touch-action: pan-y;
+      user-select: none;
+    }
+
+    .globe-stage:active {
+      cursor: grabbing;
+    }
+
+    @media (min-width: 640px) {
+      .globe-stage {
+        height: 280px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .globe-stage {
+        height: 300px;
+      }
+    }
+
+    #globeCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .globe-hud-top {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .hud-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(9, 12, 16, 0.78);
+      border: 1px solid var(--border);
+      color: var(--ink-muted);
+    }
+
+    .globe-hud-bottom {
+      position: absolute;
+      bottom: 10px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .globe-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mini-ctrl {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 4px;
+      background: rgba(15, 20, 28, 0.88);
+      border: 1px solid var(--border-strong);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .mini-ctrl:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .geo-details {
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .geo-item-label {
+      font-size: 11px;
+      color: var(--ink-dim);
+    }
+
+    .geo-item-val {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-list {
+      padding: 10px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 11px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    .history-row:hover {
+      border-color: var(--cyan);
+    }
+
+    .history-host {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      flex-shrink: 0;
+    }
+
+    .empty-state {
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--ink-muted);
+      font-size: 13px;
+    }
+
+    .footer {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+
+    @media (min-width: 640px) {
+      .footer {
+        flex-direction: row;
+      }
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .gh-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .gh-link:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      text-decoration: none;
+    }
+
+    .gh-link svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>[ NetRecon ]</h1>
-        <form method="POST">
-            <input type="text" name="target" placeholder="Enter IP or Domain" autocomplete="off" required>
-            <button type="submit">Initiate Scan</button>
-        </form>
-        {% if error %}<div class="error">[!] {{ error }}</div>{% endif %}
-        
-        {% if data %}
-            <div class="result">
-                <p><span class="label">Target IP:</span> {{ data.query }}</p>
-                <p><span class="label">ISP:</span> {{ data.isp }}</p>
-                <p><span class="label">Location:</span> {{ data.city }}, {{ data.regionName }}, {{ data.country }}</p>
-                <p><span class="label">Org:</span> {{ data.org }}</p>
-                <p><span class="label">Open Ports:</span> 
-                    <span class="ports">
-                        {% if data.scanned_ports %}{{ data.scanned_ports|join(', ') }}{% else %}None detected{% endif %}
-                    </span>
-                </p>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">NetRecon <span class="version-tag">v2.0</span></h1>
+          <p class="brand-sub">External Attack-Surface, DNS, TLS &amp; Geolocation Reconnaissance</p>
+        </div>
+      </div>
+
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">IDLE · READY</span>
+      </div>
+    </header>
+
+    <section class="command-card" aria-label="Target Reconnaissance Input">
+      <form class="scan-form" id="scanForm">
+        <div class="input-wrap">
+          <span class="input-prefix">&gt;_</span>
+          <input
+            type="text"
+            id="targetInput"
+            class="target-input"
+            name="target"
+            placeholder="Enter domain or public IP (e.g. github.com or 1.1.1.1)"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+        </div>
+        <button type="submit" class="btn-primary" id="scanBtn">
+          <span id="scanBtnText">Run Recon</span>
+        </button>
+      </form>
+
+      <div class="command-meta">
+        <div class="presets">
+          <span class="preset-label">Quick targets:</span>
+          <button type="button" class="chip-btn" data-target="1.1.1.1">1.1.1.1</button>
+          <button type="button" class="chip-btn" data-target="8.8.8.8">8.8.8.8</button>
+          <button type="button" class="chip-btn" data-target="github.com">github.com</button>
+          <button type="button" class="chip-btn" data-target="vercel.com">vercel.com</button>
+        </div>
+
+        <div class="export-actions">
+          <button type="button" class="btn-ghost" id="copyMdBtn" disabled>Copy Markdown</button>
+          <button type="button" class="btn-ghost" id="downloadJsonBtn" disabled>Export JSON</button>
+        </div>
+      </div>
+
+      <div class="error-banner" id="errorBanner" role="alert"></div>
+    </section>
+
+    <section class="kpi-grid" aria-label="Recon Summary Metrics">
+      <div class="kpi-card">
+        <div class="kpi-label">Primary IP &amp; PTR</div>
+        <div class="kpi-value" id="kpiIp">—</div>
+        <div class="kpi-sub" id="kpiPtr">Awaiting target</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">ASN &amp; Network</div>
+        <div class="kpi-value" id="kpiAsn">—</div>
+        <div class="kpi-sub" id="kpiOrg">ISP / Hosting provider</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Open TCP Ports</div>
+        <div class="kpi-value" id="kpiPorts">—</div>
+        <div class="kpi-sub" id="kpiPortsSub">22 common services probed</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Web Security Grade</div>
+        <div class="kpi-value" id="kpiGrade">—</div>
+        <div class="kpi-sub" id="kpiTls">TLS &amp; HTTP header posture</div>
+      </div>
+    </section>
+
+    <main class="bento-grid">
+      <section class="panel" aria-label="Reconnaissance Findings">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab-btn active" role="tab" data-tab="ports">Ports &amp; Banners</button>
+          <button type="button" class="tab-btn" role="tab" data-tab="dns">DNS &amp; Infra</button>
+          <button type="button" class="tab-btn" role="tab" data-tab="web">TLS &amp; HTTP Audit</button>
+          <button type="button" class="tab-btn" role="tab" data-tab="raw">Raw JSON</button>
+        </div>
+
+        <div class="tab-pane active" id="pane-ports">
+          <div class="empty-state" id="portsEmpty">
+            Enter a public IP or domain above to probe 22 high-signal TCP ports and grab service banners.
+          </div>
+          <div class="table-scroll" id="portsTableWrap" style="display:none;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Port</th>
+                  <th>Service</th>
+                  <th>Exposure</th>
+                  <th>Latency</th>
+                  <th>Service Banner</th>
+                </tr>
+              </thead>
+              <tbody id="portsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="pane-dns">
+          <div class="empty-state" id="dnsEmpty">
+            DNS records (A, AAAA, CNAME, MX, NS, TXT, DMARC) and cloud/mail provider fingerprints appear here.
+          </div>
+          <div id="dnsContent" style="display:none;">
+            <div class="posture-strip" id="dnsPosture"></div>
+            <div id="dnsRecordsList"></div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="pane-web">
+          <div class="empty-state" id="webEmpty">
+            TLS certificate details and HTTP defensive security header grading appear here.
+          </div>
+          <div id="webContent" style="display:none;">
+            <div class="posture-strip" id="tlsSummary"></div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Security Header</th>
+                    <th>Status</th>
+                    <th>Value / Guidance</th>
+                  </tr>
+                </thead>
+                <tbody id="headersTbody"></tbody>
+              </table>
             </div>
-            
-            <!-- The Map -->
-            <div id="map"></div>
-            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-            <script>
-                var lat = {{ data.lat }};
-                var lon = {{ data.lon }};
-                
-                var map = L.map('map').setView([lat, lon], 10);
-                
-                // OpenStreetMap tiles (No API Key required)
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
-                }).addTo(map);
-                
-                L.marker([lat, lon]).addTo(map)
-                    .bindPopup("<b>{{ data.query }}</b><br>{{ data.city }}")
-                    .openPopup();
-            </script>
-        {% endif %}
-    </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="pane-raw">
+          <pre class="json-box" id="rawJsonBox">// No scan payload captured yet.</pre>
+        </div>
+      </section>
+
+      <aside class="right-stack">
+        <section class="panel" aria-label="Interactive Geolocation Globe">
+          <div class="panel-header">
+            <h2 class="panel-title">Global Telemetry Node</h2>
+            <span class="mono" style="font-size:11px;color:var(--cyan);" id="globeModeLabel">AUTO-ROTATE</span>
+          </div>
+
+          <div class="globe-stage" id="globeStage" title="Drag or swipe to rotate globe">
+            <canvas id="globeCanvas"></canvas>
+            <div class="globe-hud-top">
+              <span class="hud-tag" id="hudCoords">LAT 0.00° · LON 0.00°</span>
+              <span class="hud-tag" id="hudLocation">STANDBY</span>
+            </div>
+            <div class="globe-hud-bottom">
+              <div class="globe-controls">
+                <button type="button" class="mini-ctrl" id="toggleSpinBtn">Pause Spin</button>
+                <button type="button" class="mini-ctrl" id="recenterBtn" style="display:none;">Lock Target</button>
+              </div>
+              <a class="mini-ctrl" id="osmLink" href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" style="display:none;">Open Map ↗</a>
+            </div>
+          </div>
+
+          <div class="geo-details">
+            <div>
+              <div class="geo-item-label">City / Region</div>
+              <div class="geo-item-val" id="geoCity">—</div>
+            </div>
+            <div>
+              <div class="geo-item-label">Country</div>
+              <div class="geo-item-val" id="geoCountry">—</div>
+            </div>
+            <div>
+              <div class="geo-item-label">Timezone</div>
+              <div class="geo-item-val" id="geoTz">—</div>
+            </div>
+            <div>
+              <div class="geo-item-label">Resolved IPs</div>
+              <div class="geo-item-val" id="geoAllIps">—</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" aria-label="Recent Reconnaissance History">
+          <div class="panel-header">
+            <h2 class="panel-title">Recent Scans</h2>
+            <button type="button" class="mini-ctrl" id="clearHistoryBtn">Clear</button>
+          </div>
+          <div class="history-list" id="historyList">
+            <div class="empty-state" style="padding:14px 8px;">No local scan history yet.</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      <div>Authorized passive &amp; active network reconnaissance only.</div>
+      <div class="footer-links">
+        <a class="gh-link" href="https://github.com/JoeBuildsThings" target="_blank" rel="noopener noreferrer" aria-label="GitHub Profile JoeBuildsThings">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          <span>GitHub · @JoeBuildsThings</span>
+        </a>
+        <a class="gh-link" href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer" aria-label="NetRecon Source Repository">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/>
+          </svg>
+          <span>Source</span>
+        </a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (function initGlobe() {
+      const canvas = document.getElementById('globeCanvas');
+      const stage = document.getElementById('globeStage');
+      const toggleSpinBtn = document.getElementById('toggleSpinBtn');
+      const recenterBtn = document.getElementById('recenterBtn');
+      const modeLabel = document.getElementById('globeModeLabel');
+      const ctx = canvas.getContext('2d');
+
+      const CONTINENTS = [
+        [[-168,65],[-140,70],[-110,73],[-82,70],[-64,60],[-55,48],[-70,41],[-81,25],[-90,21],[-97,26],[-105,20],[-115,31],[-124,42],[-135,58],[-168,65]],
+        [[-52,60],[-43,60],[-20,70],[-22,82],[-45,83],[-60,76],[-52,60]],
+        [[-80,10],[-62,11],[-50,0],[-35,-6],[-38,-15],[-48,-26],[-58,-38],[-68,-54],[-74,-52],[-72,-35],[-71,-18],[-81,-5],[-80,10]],
+        [[-10,36],[0,36],[4,43],[14,41],[24,38],[29,41],[40,45],[50,53],[58,68],[28,71],[12,68],[5,60],[-5,48],[-10,36]],
+        [[-17,15],[-6,35],[10,37],[32,31],[43,12],[51,11],[41,-3],[35,-24],[28,-33],[18,-34],[12,-17],[9,4],[-5,5],[-17,15]],
+        [[28,42],[42,42],[52,26],[62,25],[73,20],[78,8],[88,22],[98,16],[104,2],[109,21],[121,25],[122,40],[135,44],[142,54],[162,60],[178,66],[130,72],[90,75],[60,70],[50,53],[40,45],[28,42]],
+        [[130,32],[136,35],[141,41],[145,44],[140,36],[130,32]],
+        [[96,5],[105,-6],[116,-8],[128,-6],[120,1],[106,-1],[96,5]],
+        [[114,-22],[122,-14],[131,-12],[136,-14],[142,-11],[150,-23],[153,-28],[147,-38],[138,-35],[129,-32],[115,-34],[114,-22]]
+      ];
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let autoSpin = !prefersReducedMotion;
+      let rotLon = 15;
+      let rotLat = 16;
+      let targetLon = null;
+      let targetLat = null;
+      let pinCoords = null;
+      let dragging = false;
+      let lastX = 0;
+      let lastY = 0;
+      let pulsePhase = 0;
+
+      function updateModeUI() {
+        toggleSpinBtn.textContent = autoSpin ? 'Pause Spin' : 'Resume Spin';
+        if (pinCoords && !autoSpin) {
+          modeLabel.textContent = 'TARGET LOCKED';
+        } else if (autoSpin) {
+          modeLabel.textContent = 'AUTO-ROTATE';
+        } else {
+          modeLabel.textContent = 'MANUAL';
+        }
+      }
+
+      function resizeCanvas() {
+        const rect = stage.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+        canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      new ResizeObserver(resizeCanvas).observe(stage);
+      resizeCanvas();
+
+      function project(lon, lat, radius, cx, cy) {
+        const phi = (lat * Math.PI) / 180;
+        const theta = ((lon - rotLon) * Math.PI) / 180;
+        const tilt = (rotLat * Math.PI) / 180;
+
+        const x0 = radius * Math.cos(phi) * Math.sin(theta);
+        const y0 = -radius * Math.sin(phi);
+        const z0 = radius * Math.cos(phi) * Math.cos(theta);
+
+        const y1 = y0 * Math.cos(tilt) - z0 * Math.sin(tilt);
+        const z1 = y0 * Math.sin(tilt) + z0 * Math.cos(tilt);
+
+        return {
+          x: cx + x0,
+          y: cy + y1,
+          z: z1,
+          visible: z1 > 0
+        };
+      }
+
+      function drawFrame() {
+        const rect = stage.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        const radius = Math.min(w, h) * 0.37;
+
+        ctx.clearRect(0, 0, w, h);
+
+        if (targetLon !== null && targetLat !== null && !dragging && !autoSpin) {
+          let diffLon = ((targetLon - rotLon + 540) % 360) - 180;
+          let diffLat = targetLat - rotLat;
+          if (Math.abs(diffLon) > 0.15 || Math.abs(diffLat) > 0.15) {
+            rotLon += diffLon * 0.09;
+            rotLat += diffLat * 0.09;
+          } else {
+            rotLon = targetLon;
+            rotLat = targetLat;
+            targetLon = null;
+            targetLat = null;
+          }
+        } else if (autoSpin && !dragging) {
+          rotLon = (rotLon + 0.22) % 360;
+        }
+
+        pulsePhase = (pulsePhase + 0.04) % (Math.PI * 2);
+
+        const grad = ctx.createRadialGradient(cx - radius * 0.28, cy - radius * 0.28, radius * 0.1, cx, cy, radius);
+        grad.addColorStop(0, '#162234');
+        grad.addColorStop(0.75, '#0D131D');
+        grad.addColorStop(1, '#080B10');
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.32)';
+        ctx.stroke();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 0.5, 0, Math.PI * 2);
+        ctx.clip();
+
+        ctx.lineWidth = 0.7;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.09)';
+        for (let lat = -60; lat <= 60; lat += 30) {
+          ctx.beginPath();
+          let started = false;
+          for (let lon = -180; lon <= 180; lon += 6) {
+            const p = project(lon, lat, radius, cx, cy);
+            if (p.visible) {
+              if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+              else { ctx.lineTo(p.x, p.y); }
+            } else {
+              started = false;
+            }
+          }
+          ctx.stroke();
+        }
+
+        for (let lon = -180; lon < 180; lon += 30) {
+          ctx.beginPath();
+          let started = false;
+          for (let lat = -85; lat <= 85; lat += 5) {
+            const p = project(lon, lat, radius, cx, cy);
+            if (p.visible) {
+              if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+              else { ctx.lineTo(p.x, p.y); }
+            } else {
+              started = false;
+            }
+          }
+          ctx.stroke();
+        }
+
+        CONTINENTS.forEach(poly => {
+          ctx.beginPath();
+          let anyVisible = false;
+          poly.forEach(([lon, lat], idx) => {
+            const p = project(lon, lat, radius, cx, cy);
+            if (p.visible) anyVisible = true;
+            if (idx === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          if (anyVisible) {
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.16)';
+            ctx.fill();
+            ctx.lineWidth = 1.1;
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+            ctx.stroke();
+          }
+        });
+
+        if (pinCoords) {
+          const pin = project(pinCoords.lon, pinCoords.lat, radius, cx, cy);
+          if (pin.visible) {
+            const ringR = 5 + Math.sin(pulsePhase) * 3.5;
+            ctx.beginPath();
+            ctx.arc(pin.x, pin.y, ringR + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(pin.x, pin.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#EF4444';
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.stroke();
+          }
+        }
+
+        ctx.restore();
+
+        if (!document.hidden) {
+          requestAnimationFrame(drawFrame);
+        }
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) requestAnimationFrame(drawFrame);
+      });
+
+      stage.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button, a')) return;
+        dragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        stage.setPointerCapture(e.pointerId);
+      });
+
+      stage.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        rotLon = (rotLon - dx * 0.45) % 360;
+        rotLat = Math.max(-75, Math.min(75, rotLat + dy * 0.35));
+      });
+
+      stage.addEventListener('pointerup', (e) => {
+        if (!dragging) return;
+        dragging = false;
+        try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+      });
+
+      toggleSpinBtn.addEventListener('click', () => {
+        autoSpin = !autoSpin;
+        if (!autoSpin && pinCoords) {
+          targetLon = pinCoords.lon;
+          targetLat = pinCoords.lat;
+        }
+        updateModeUI();
+      });
+
+      recenterBtn.addEventListener('click', () => {
+        if (!pinCoords) return;
+        autoSpin = false;
+        targetLon = pinCoords.lon;
+        targetLat = pinCoords.lat;
+        updateModeUI();
+      });
+
+      window.lockGlobeTarget = function(lat, lon, label) {
+        pinCoords = { lat: Number(lat) || 0, lon: Number(lon) || 0, label: label || '' };
+        autoSpin = false;
+        targetLon = pinCoords.lon;
+        targetLat = pinCoords.lat;
+        recenterBtn.style.display = 'inline-block';
+        updateModeUI();
+      };
+
+      updateModeUI();
+      requestAnimationFrame(drawFrame);
+    })();
+
+    const scanForm = document.getElementById('scanForm');
+    const targetInput = document.getElementById('targetInput');
+    const scanBtn = document.getElementById('scanBtn');
+    const scanBtnText = document.getElementById('scanBtnText');
+    const errorBanner = document.getElementById('errorBanner');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const copyMdBtn = document.getElementById('copyMdBtn');
+    const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+
+    let latestPayload = null;
+    const HISTORY_KEY = 'netrecon_v2_history';
+
+    function esc(val) {
+      return String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function setStatus(state, text) {
+      statusDot.className = 'status-dot' + (state ? ' ' + state : '');
+      statusText.textContent = text;
+    }
+
+    function showError(msg) {
+      errorBanner.textContent = '[!] ' + msg;
+      errorBanner.classList.add('visible');
+      setStatus('error', 'PROBE FAILED');
+    }
+
+    function clearError() {
+      errorBanner.textContent = '';
+      errorBanner.classList.remove('visible');
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('pane-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.chip-btn[data-target]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        targetInput.value = chip.dataset.target;
+        runRecon(chip.dataset.target);
+      });
+    });
+
+    function renderResults(data) {
+      latestPayload = data;
+      copyMdBtn.disabled = false;
+      downloadJsonBtn.disabled = false;
+
+      const t = data.target;
+      const g = data.geo;
+      const p = data.ports;
+      const d = data.dns;
+      const w = data.web;
+
+      document.getElementById('kpiIp').textContent = t.primary_ip;
+      document.getElementById('kpiPtr').textContent = (d.ptr && d.ptr.length) ? d.ptr[0] : (t.is_ip ? 'No PTR record' : t.host);
+
+      document.getElementById('kpiAsn').textContent = g.asn || 'N/A';
+      document.getElementById('kpiOrg').textContent = g.org || g.isp || 'Unknown';
+
+      document.getElementById('kpiPorts').textContent = `${p.open_count} Open`;
+      document.getElementById('kpiPortsSub').textContent = `${p.scanned_count} probed in ${p.scan_ms} ms`;
+
+      document.getElementById('kpiGrade').textContent = w.grade || 'N/A';
+      if (w.tls && w.tls.available) {
+        document.getElementById('kpiTls').textContent = `${w.tls.protocol} · ${w.tls.days_remaining}d left`;
+      } else {
+        document.getElementById('kpiTls').textContent = w.reachable ? 'HTTP (No TLS)' : 'No web listener';
+      }
+
+      const lat = Number(g.latitude || 0).toFixed(2);
+      const lon = Number(g.longitude || 0).toFixed(2);
+      document.getElementById('hudCoords').textContent = `LAT ${lat}° · LON ${lon}°`;
+      document.getElementById('hudLocation').textContent = `${g.city}, ${g.country_code || g.country}`;
+      document.getElementById('geoCity').textContent = [g.city, g.region].filter(Boolean).join(', ') || '—';
+      document.getElementById('geoCountry').textContent = g.country || '—';
+      document.getElementById('geoTz').textContent = g.timezone || '—';
+      document.getElementById('geoAllIps').textContent = (t.all_ips || [t.primary_ip]).join(', ');
+
+      const osmLink = document.getElementById('osmLink');
+      osmLink.href = `https://www.openstreetmap.org/?mlat=${g.latitude}&mlon=${g.longitude}#map=10/${g.latitude}/${g.longitude}`;
+      osmLink.style.display = 'inline-block';
+
+      if (window.lockGlobeTarget) {
+        window.lockGlobeTarget(g.latitude, g.longitude, g.city);
+      }
+
+      const portsEmpty = document.getElementById('portsEmpty');
+      const portsTableWrap = document.getElementById('portsTableWrap');
+      const portsTbody = document.getElementById('portsTbody');
+
+      if (!p.open_ports || p.open_ports.length === 0) {
+        portsTableWrap.style.display = 'none';
+        portsEmpty.style.display = 'block';
+        portsEmpty.textContent = `No open ports detected across ${p.scanned_count} common TCP services (${p.scan_ms} ms). Host may be firewalled.`;
+      } else {
+        portsEmpty.style.display = 'none';
+        portsTableWrap.style.display = 'block';
+        portsTbody.innerHTML = p.open_ports.map(item => {
+          const badgeClass = item.risk === 'high' ? 'badge-high' : (item.risk === 'warn' ? 'badge-warn' : 'badge-info');
+          const banner = item.banner ? esc(item.banner) : `<span style="color:var(--ink-dim);">${esc(item.note)}</span>`;
+          return `
+            <tr>
+              <td class="mono" style="font-weight:700;color:var(--emerald);">${esc(item.port)}/tcp</td>
+              <td class="mono">${esc(item.service)}</td>
+              <td><span class="badge ${badgeClass}">${esc(item.risk)}</span></td>
+              <td class="mono" style="color:var(--ink-muted);">${esc(item.latency_ms)} ms</td>
+              <td class="banner-text">${banner}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('dnsEmpty').style.display = 'none';
+      document.getElementById('dnsContent').style.display = 'block';
+
+      const pos = d.posture || {};
+      document.getElementById('dnsPosture').innerHTML = `
+        <div class="mini-box">
+          <div class="mini-box-label">DNS / Edge Provider</div>
+          <div class="mini-box-val">${esc(pos.dns_provider || 'Unknown')}</div>
+        </div>
+        <div class="mini-box">
+          <div class="mini-box-label">Mail Infrastructure</div>
+          <div class="mini-box-val">${esc(pos.mail_provider || 'None')}</div>
+        </div>
+        <div class="mini-box">
+          <div class="mini-box-label">SPF Policy</div>
+          <div class="mini-box-val">${pos.spf_configured ? '<span class="badge badge-pass">CONFIGURED</span>' : '<span class="badge badge-warn">MISSING</span>'}</div>
+        </div>
+        <div class="mini-box">
+          <div class="mini-box-label">DMARC Policy</div>
+          <div class="mini-box-val">${pos.dmarc_configured ? '<span class="badge badge-pass">CONFIGURED</span>' : '<span class="badge badge-warn">MISSING</span>'}</div>
+        </div>
+      `;
+
+      const recTypes = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'DMARC'];
+      const groupsHtml = recTypes.map(type => {
+        const vals = (d.records && d.records[type]) || [];
+        if (!vals.length) return '';
+        return `
+          <div class="dns-group">
+            <div class="dns-group-head"><span>${type}</span><span>${vals.length}</span></div>
+            ${vals.map(v => `<div class="dns-record-row">${esc(v)}</div>`).join('')}
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('dnsRecordsList').innerHTML = groupsHtml || '<div class="empty-state">No public DNS records returned for this target.</div>';
+
+      document.getElementById('webEmpty').style.display = 'none';
+      document.getElementById('webContent').style.display = 'block';
+
+      const tls = w.tls || {};
+      const tlsHtml = tls.available ? `
+        <div class="mini-box">
+          <div class="mini-box-label">TLS Protocol &amp; Cipher</div>
+          <div class="mini-box-val">${esc(tls.protocol)} · ${esc(tls.cipher)}</div>
+        </div>
+        <div class="mini-box">
+          <div class="mini-box-label">Certificate Issuer</div>
+          <div class="mini-box-val">${esc(tls.issuer)}</div>
+        </div>
+        <div class="mini-box">
+          <div class="mini-box-label">Common Name (SANs: ${esc(tls.san_count)})</div>
+          <div class="mini-box-val">${esc(tls.common_name)}</div>
+        </div>
+        <div class="mini-box">
+          <div class="mini-box-label">Expiry Window</div>
+          <div class="mini-box-val">${esc(tls.days_remaining)} days remaining</div>
+        </div>
+      ` : `
+        <div class="mini-box" style="grid-column: 1 / -1;">
+          <div class="mini-box-label">TLS Certificate Inspection</div>
+          <div class="mini-box-val" style="color:var(--ink-muted);">No active TLS certificate on port 443</div>
+        </div>
+      `;
+      document.getElementById('tlsSummary').innerHTML = tlsHtml;
+
+      const headersTbody = document.getElementById('headersTbody');
+      if (!w.reachable || !w.headers || !w.headers.length) {
+        headersTbody.innerHTML = '<tr><td colspan="3" style="color:var(--ink-muted);">Target did not respond to HTTP/HTTPS probes.</td></tr>';
+      } else {
+        let rows = w.headers.map(h => `
+          <tr>
+            <td class="mono" style="font-weight:600;">${esc(h.label)}</td>
+            <td>${h.present ? '<span class="badge badge-pass">PASS</span>' : '<span class="badge badge-warn">MISSING</span>'}</td>
+            <td class="banner-text">${h.present ? esc(h.value) : esc(h.advice)}</td>
+          </tr>
+        `).join('');
+
+        if (w.disclosures && w.disclosures.length) {
+          rows += w.disclosures.map(disc => `
+            <tr>
+              <td class="mono" style="color:var(--amber);">${esc(disc.header)}</td>
+              <td><span class="badge badge-info">EXPOSED</span></td>
+              <td class="banner-text">${esc(disc.value)}</td>
+            </tr>
+          `).join('');
+        }
+        headersTbody.innerHTML = rows;
+      }
+
+      document.getElementById('rawJsonBox').textContent = JSON.stringify(data, null, 2);
+    }
+
+    function saveHistory(data) {
+      try {
+        const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const entry = {
+          host: data.target.host,
+          ip: data.target.primary_ip,
+          country: data.geo.country_code || data.geo.country,
+          openPorts: data.ports.open_count,
+          grade: data.web.grade,
+          ts: Date.now()
+        };
+        const filtered = list.filter(x => x.host !== entry.host);
+        filtered.unshift(entry);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(filtered.slice(0, 8)));
+        renderHistory();
+      } catch (_) {}
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('historyList');
+      try {
+        const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        if (!list.length) {
+          container.innerHTML = '<div class="empty-state" style="padding:14px 8px;">No local scan history yet.</div>';
+          return;
+        }
+        container.innerHTML = list.map(item => `
+          <div class="history-row" data-host="${esc(item.host)}">
+            <div style="min-width:0;">
+              <div class="history-host">${esc(item.host)}</div>
+              <div class="history-meta">${esc(item.ip)} · ${esc(item.country)}</div>
+            </div>
+            <div class="history-meta">${esc(item.openPorts)} ports · Grade ${esc(item.grade)}</div>
+          </div>
+        `).join('');
+
+        container.querySelectorAll('.history-row').forEach(row => {
+          row.addEventListener('click', () => {
+            targetInput.value = row.dataset.host;
+            runRecon(row.dataset.host);
+          });
+        });
+      } catch (_) {}
+    }
+
+    document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+      try { localStorage.removeItem(HISTORY_KEY); } catch (_) {}
+      renderHistory();
+    });
+
+    async function runRecon(rawTarget) {
+      const target = (rawTarget || targetInput.value || '').trim();
+      if (!target) return;
+
+      clearError();
+      scanBtn.disabled = true;
+      scanBtnText.textContent = 'Probing...';
+      setStatus('scanning', 'PROBING TARGET...');
+
+      try {
+        const res = await fetch('/api/recon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          showError(data.error || 'Reconnaissance probe failed.');
+          return;
+        }
+        renderResults(data);
+        saveHistory(data);
+        setStatus('', `COMPLETE · ${data.elapsed_ms} MS`);
+      } catch (err) {
+        showError('Network error while contacting NetRecon API.');
+      } finally {
+        scanBtn.disabled = false;
+        scanBtnText.textContent = 'Run Recon';
+      }
+    }
+
+    scanForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      runRecon(targetInput.value);
+    });
+
+    copyMdBtn.addEventListener('click', async () => {
+      if (!latestPayload) return;
+      const d = latestPayload;
+      const portsLine = d.ports.open_ports.length
+        ? d.ports.open_ports.map(p => `${p.port}/${p.service} (${p.latency_ms}ms)`).join(', ')
+        : 'None detected';
+      const md = [
+        `## NetRecon Report — ${d.target.host}`,
+        `- **Primary IP:** ${d.target.primary_ip}`,
+        `- **ASN / Org:** ${d.geo.asn} — ${d.geo.org}`,
+        `- **Location:** ${d.geo.city}, ${d.geo.country} (${d.geo.latitude}, ${d.geo.longitude})`,
+        `- **Open Ports (${d.ports.open_count}/${d.ports.scanned_count}):** ${portsLine}`,
+        `- **Web Posture Grade:** ${d.web.grade} (${d.web.score}/100)`
+      ].join('\n');
+
+      try {
+        await navigator.clipboard.writeText(md);
+        const orig = copyMdBtn.textContent;
+        copyMdBtn.textContent = 'Copied!';
+        setTimeout(() => { copyMdBtn.textContent = orig; }, 1600);
+      } catch (_) {}
+    });
+
+    downloadJsonBtn.addEventListener('click', () => {
+      if (!latestPayload) return;
+      const blob = new Blob([JSON.stringify(latestPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `netrecon-${latestPayload.target.host}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    renderHistory();
+  </script>
 </body>
 </html>
