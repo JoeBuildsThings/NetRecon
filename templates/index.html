@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetRecon</title>
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { background-color: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding-top: 5vh; margin: 0; }
+        .container { background: #111; padding: 30px; border: 1px solid #00ff41; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 255, 65, 0.2); width: 90%; max-width: 700px; }
+        h1 { text-align: center; text-transform: uppercase; letter-spacing: 4px; margin-top: 0; }
+        input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; background: #000; border: 1px solid #00ff41; color: #00ff41; font-family: inherit; font-size: 16px; box-sizing: border-box; outline: none; }
+        button { width: 100%; padding: 12px; background: #00ff41; color: #000; border: none; font-weight: bold; font-family: inherit; font-size: 16px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
+        button:hover { background: #00cc33; }
+        .result { margin-top: 20px; border-top: 1px dashed #00ff41; padding-top: 20px; }
+        .result p { margin: 8px 0; font-size: 14px; }
+        .label { color: #888; }
+        .error { color: #ff3333; text-align: center; margin-top: 15px; font-weight: bold; }
+        .ports { color: #00ff41; font-weight: bold; }
+        #map { height: 300px; width: 100%; margin-top: 15px; border: 1px solid #333; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>[ NetRecon ]</h1>
+        <form method="POST">
+            <input type="text" name="target" placeholder="Enter IP or Domain" autocomplete="off" required>
+            <button type="submit">Initiate Scan</button>
+        </form>
+        {% if error %}<div class="error">[!] {{ error }}</div>{% endif %}
+        
+        {% if data %}
+            <div class="result">
+                <p><span class="label">Target IP:</span> {{ data.query }}</p>
+                <p><span class="label">ISP:</span> {{ data.isp }}</p>
+                <p><span class="label">Location:</span> {{ data.city }}, {{ data.regionName }}, {{ data.country }}</p>
+                <p><span class="label">Org:</span> {{ data.org }}</p>
+                <p><span class="label">Open Ports:</span> 
+                    <span class="ports">
+                        {% if data.scanned_ports %}{{ data.scanned_ports|join(', ') }}{% else %}None detected{% endif %}
+                    </span>
+                </p>
+            </div>
+            
+            <!-- The Map -->
+            <div id="map"></div>
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <script>
+                // Grab lat/lon from Flask
+                var lat = {{ data.lat }};
+                var lon = {{ data.lon }};
+                
+                // Init map
+                var map = L.map('map').setView([lat, lon], 10);
+                
+                // Dark theme map tiles
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; OpenStreetMap &copy; CARTO'
+                }).addTo(map);
+                
+                // Drop the pin
+                L.marker([lat, lon]).addTo(map)
+                    .bindPopup("<b>{{ data.query }}</b><br>{{ data.city }}")
+                    .openPopup();
+            </script>
+        {% endif %}
+    </div>
+</body>
+</html>
