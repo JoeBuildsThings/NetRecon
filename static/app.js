@@ -92,11 +92,11 @@
     const web = data.web || {};
     const ports = data.ports || {};
 
-    $("#metricIp").textContent = target.primary_ip || "—";
-    $("#metricHost").textContent = target.host || (target.is_ip ? "Direct IP" : "—");
+    $("#metricIp").textContent = target.primary_ip || "N/A";
+    $("#metricHost").textContent = target.host || (target.is_ip ? "Direct IP" : "N/A");
 
     const location = [geo.city, geo.country].filter(Boolean).join(", ") || "Unknown location";
-    $("#metricGeo").textContent = geo.asn || "—";
+    $("#metricGeo").textContent = geo.asn || "N/A";
     $("#metricOrg").textContent = `${location} · ${geo.org || "Unknown network"}`;
 
     const grade = web.grade || "N/A";
@@ -118,10 +118,10 @@
     } else {
       const openCount = ports.open_count ?? (ports.open_ports || []).length;
       $("#metricPorts").textContent = `${openCount} open`;
-      $("#metricLatency").textContent = ports.scan_ms != null ? `${ports.scan_ms} ms · ${ports.scanned_count || 0} checked` : "—";
+      $("#metricLatency").textContent = ports.scan_ms != null ? `${ports.scan_ms} ms · ${ports.scanned_count || 0} checked` : "N/A";
     }
 
-    $("#sideElapsed").textContent = data.elapsed_ms != null ? `${data.elapsed_ms} ms` : "—";
+    $("#sideElapsed").textContent = data.elapsed_ms != null ? `${data.elapsed_ms} ms` : "N/A";
     const partialErrors = Array.isArray(data.partial_errors) ? data.partial_errors : [];
     $("#sidePartial").textContent = partialErrors.length ? partialErrors.join(", ") : (data.partial ? "Partial" : "None");
     const ownership = data.ownership || {};
@@ -152,7 +152,7 @@
       ["Reachable", web.reachable ? "Yes" : "No"],
       ["TLS available", tls.available ? "Yes" : "No"],
       ["TLS verified", tls.verified ? "Yes" : "No"],
-      ["Verification detail", tls.verify_error || "—"],
+      ["Verification detail", tls.verify_error || "N/A"],
     ];
     $("#tlsGrid").innerHTML = tlsItems.map(([key, value]) =>
       `<div class="kv-card"><div class="k">${escapeHtml(key)}</div><div class="v">${escapeHtml(String(value))}</div></div>`
@@ -165,7 +165,7 @@
           const value = header.value || header.status || JSON.stringify(header);
           return `<li><span class="name">${escapeHtml(name)}</span><span class="val">${escapeHtml(String(value))}</span></li>`;
         }).join("")
-      : '<li><span class="name">No header findings returned</span><span class="val">—</span></li>';
+      : '<li><span class="name">No header findings returned</span><span class="val">N/A</span></li>';
   }
 
   function renderDns(dns) {
@@ -181,10 +181,10 @@
 
     const posture = dns.posture || {};
     const summary = [
-      ["DNS provider", posture.dns_provider || "—"],
-      ["Mail provider", posture.mail_provider || "—"],
+      ["DNS provider", posture.dns_provider || "N/A"],
+      ["Mail provider", posture.mail_provider || "N/A"],
       ["SPF", posture.spf_status || (posture.spf_configured ? "Configured" : "Missing")],
-      ["DMARC", posture.dmarc_status || posture.dmarc_policy || "—"],
+      ["DMARC", posture.dmarc_status || posture.dmarc_policy || "N/A"],
     ];
     $("#dnsSummary").innerHTML = summary.map(([key, value]) =>
       `<div class="kv-card"><div class="k">${escapeHtml(key)}</div><div class="v">${escapeHtml(String(value))}</div></div>`
@@ -253,8 +253,8 @@
     box.hidden = false;
     $("#portsBody").innerHTML = openPorts.map((entry) => {
       const port = entry.port ?? entry;
-      const service = entry.service || "—";
-      const latency = entry.latency_ms != null ? `${entry.latency_ms} ms` : "—";
+      const service = entry.service || "N/A";
+      const latency = entry.latency_ms != null ? `${entry.latency_ms} ms` : "N/A";
       return `<tr><td>${escapeHtml(String(port))}</td><td>${escapeHtml(String(service))}</td><td>${escapeHtml(latency)}</td><td><span class="badge badge-green">Open</span></td></tr>`;
     }).join("");
   }
@@ -402,12 +402,12 @@
     const lines = [
       `# NetRecon audit: ${data.target?.host || "target"}`,
       "",
-      `- Target IP: ${data.target?.primary_ip || "—"}`,
-      `- ASN: ${data.geo?.asn || "—"} (${data.geo?.org || "—"})`,
-      `- Location: ${[data.geo?.city, data.geo?.country].filter(Boolean).join(", ") || "—"}`,
+      `- Target IP: ${data.target?.primary_ip || "N/A"}`,
+      `- ASN: ${data.geo?.asn || "N/A"} (${data.geo?.org || "N/A"})`,
+      `- Location: ${[data.geo?.city, data.geo?.country].filter(Boolean).join(", ") || "N/A"}`,
       `- Web grade: ${data.web?.grade || "N/A"} (${data.web?.score ?? 0}/100)`,
       `- Ports: ${ports}`,
-      `- Elapsed: ${data.elapsed_ms ?? "—"} ms`,
+      `- Elapsed: ${data.elapsed_ms ?? "N/A"} ms`,
       `- Partial result: ${data.partial ? "Yes" : "No"}`,
     ];
     const button = event.currentTarget;
