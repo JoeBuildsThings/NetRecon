@@ -1,1613 +1,691 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#090B0E" />
-  <title>NetRecon — Network &amp; Attack-Surface Reconnaissance</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
-  <style>
-    :root {
-      --bg: #090B0E;
-      --surface: #11141A;
-      --surface-elevated: #161A22;
-      --surface-hover: #1C212B;
-      --border: rgba(255, 255, 255, 0.08);
-      --border-focus: rgba(255, 255, 255, 0.22);
-      --ink: #F8FAFC;
-      --ink-secondary: #94A3B8;
-      --ink-muted: #64748B;
-      --accent: #38BDF8;
-      --accent-ink: #041019;
-      --accent-soft: rgba(56, 189, 248, 0.12);
-      --green: #10B981;
-      --green-soft: rgba(16, 185, 129, 0.14);
-      --amber: #F59E0B;
-      --amber-soft: rgba(245, 158, 11, 0.14);
-      --red: #EF4444;
-      --red-soft: rgba(239, 68, 68, 0.14);
-      --font-display: 'Syne', sans-serif;
-      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-      --radius: 12px;
-      --radius-sm: 8px;
-    }
-
-    *, *::before, *::after {
-      box-sizing: border-box;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      background-color: var(--bg);
-      color: var(--ink);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-    }
-
-    a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-
-    .mono {
-      font-family: var(--font-mono);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .page {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      max-width: 1260px;
-      margin: 0 auto;
-      padding: 16px 16px 28px;
-    }
-
-    @media (min-width: 640px) {
-      .page {
-        padding: 24px 28px 36px;
-      }
-    }
-
-    /* Minimal Top Navigation */
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding-bottom: 16px;
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .brand-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      display: grid;
-      place-items: center;
-      color: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .brand-wordmark {
-      margin: 0;
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: var(--ink);
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .version-pill {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 999px;
-      background: var(--surface-elevated);
-      border: 1px solid var(--border);
-      color: var(--ink-secondary);
-    }
-
-    .nav-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--ink-secondary);
-    }
-
-    .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-    }
-    .dot.scanning {
-      background: var(--accent);
-      animation: pulse 1s infinite;
-    }
-    .dot.error {
-      background: var(--red);
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.35; transform: scale(0.8); }
-    }
-
-    /* Hero Stage: Command Left + Floating Unboxed 3D Earth Right */
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 24px;
-      align-items: center;
-      padding: 12px 0 28px;
-    }
-
-    @media (min-width: 960px) {
-      .hero {
-        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-        gap: 36px;
-        padding: 20px 0 34px;
-      }
-    }
-
-    .hero-command {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      min-width: 0;
-    }
-
-    .hero-headline {
-      margin: 0;
-      font-family: var(--font-display);
-      font-size: clamp(26px, 4vw, 38px);
-      font-weight: 800;
-      line-height: 1.12;
-      letter-spacing: -0.03em;
-      color: var(--ink);
-    }
-
-    .search-shell {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 8px;
-      transition: border-color 0.15s ease;
-    }
-
-    .search-shell:focus-within {
-      border-color: var(--border-focus);
-    }
-
-    @media (min-width: 560px) {
-      .search-shell {
-        flex-direction: row;
-        align-items: center;
-      }
-    }
-
-    .search-input-wrap {
-      position: relative;
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      align-items: center;
-    }
-
-    .search-prompt {
-      padding-left: 12px;
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--accent);
-      user-select: none;
-    }
-
-    .search-input {
-      width: 100%;
-      height: 44px;
-      padding: 0 12px;
-      background: transparent;
-      border: none;
-      color: var(--ink);
-      font-family: var(--font-mono);
-      font-size: 14px;
-      outline: none;
-    }
-
-    .search-input::placeholder {
-      color: var(--ink-muted);
-    }
-
-    .btn-scan {
-      height: 44px;
-      padding: 0 22px;
-      border: none;
-      border-radius: var(--radius-sm);
-      background: var(--accent);
-      color: var(--accent-ink);
-      font-family: var(--font-sans);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: opacity 0.15s ease, transform 0.1s ease;
-    }
-
-    .btn-scan:hover:not(:disabled) {
-      opacity: 0.92;
-    }
-
-    .btn-scan:active:not(:disabled) {
-      transform: translateY(1px);
-    }
-
-    .btn-scan:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .quick-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .quick-label {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--ink-muted);
-    }
-
-    .pill-btn {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      padding: 5px 11px;
-      border-radius: 999px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--ink-secondary);
-      cursor: pointer;
-      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-    }
-
-    .pill-btn:hover {
-      background: var(--surface-elevated);
-      border-color: var(--border-focus);
-      color: var(--ink);
-    }
-
-    .error-toast {
-      display: none;
-      padding: 11px 14px;
-      border-radius: var(--radius-sm);
-      background: var(--red-soft);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #FCA5A5;
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-    }
-    .error-toast.visible {
-      display: block;
-    }
-
-    /* Recent History Bar inside Hero */
-    .recent-bar {
-      display: none;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-      padding-top: 4px;
-    }
-    .recent-bar.has-items {
-      display: flex;
-    }
-
-    .hist-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--ink-secondary);
-      cursor: pointer;
-    }
-    .hist-pill:hover {
-      border-color: var(--border-focus);
-      color: var(--ink);
-    }
-
-    /* Floating Unboxed 3D Earth Stage */
-    .earth-stage {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-width: 0;
-    }
-
-    .earth-canvas-wrap {
-      position: relative;
-      width: 100%;
-      max-width: 390px;
-      aspect-ratio: 1 / 1;
-      display: grid;
-      place-items: center;
-      cursor: grab;
-      touch-action: pan-y;
-      user-select: none;
-    }
-
-    .earth-canvas-wrap:active {
-      cursor: grabbing;
-    }
-
-    #earthCanvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .earth-caption {
-      margin-top: 6px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--ink-secondary);
-    }
-
-    .earth-action {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 3px 9px;
-      border-radius: 999px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--ink-secondary);
-      cursor: pointer;
-    }
-    .earth-action:hover {
-      border-color: var(--border-focus);
-      color: var(--ink);
-    }
-
-    /* 4-Card Summary Strip */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    @media (min-width: 900px) {
-      .metrics-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-      }
-    }
-
-    .metric-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 18px;
-      min-width: 0;
-    }
-
-    .metric-label {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--ink-muted);
-      margin-bottom: 6px;
-    }
-
-    .metric-val {
-      font-family: var(--font-mono);
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--ink);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .metric-sub {
-      margin-top: 4px;
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--ink-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Main Findings Panel */
-    .results-panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      flex: 1;
-    }
-
-    .results-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface-elevated);
-    }
-
-    .tab-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .tab-pill {
-      padding: 6px 12px;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--ink-secondary);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s ease, color 0.15s ease;
-    }
-
-    .tab-pill:hover {
-      color: var(--ink);
-      background: rgba(255, 255, 255, 0.04);
-    }
-
-    .tab-pill.active {
-      background: var(--bg);
-      border-color: var(--border);
-      color: var(--accent);
-    }
-
-    .export-bar {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn-export {
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 500;
-      padding: 6px 11px;
-      border-radius: 6px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--ink-secondary);
-      cursor: pointer;
-    }
-
-    .btn-export:hover:not(:disabled) {
-      border-color: var(--border-focus);
-      color: var(--ink);
-    }
-
-    .btn-export:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .tab-view {
-      display: none;
-      padding: 18px;
-    }
-
-    @media (min-width: 640px) {
-      .tab-view {
-        padding: 22px;
-      }
-    }
-
-    .tab-view.active {
-      display: block;
-    }
-
-    .empty-box {
-      padding: 40px 16px;
-      text-align: center;
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      color: var(--ink-muted);
-    }
-
-    /* Tables */
-    .table-scroll {
-      width: 100%;
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    th {
-      text-align: left;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--ink-muted);
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    td {
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .badge-green {
-      background: var(--green-soft);
-      color: var(--green);
-    }
-    .badge-amber {
-      background: var(--amber-soft);
-      color: var(--amber);
-    }
-    .badge-red {
-      background: var(--red-soft);
-      color: var(--red);
-    }
-    .badge-blue {
-      background: var(--accent-soft);
-      color: var(--accent);
-    }
-
-    .banner-col {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--ink-secondary);
-      word-break: break-all;
-      max-width: 340px;
-    }
-
-    /* Sub-grids inside DNS & TLS tabs */
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    @media (min-width: 768px) {
-      .info-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-    }
-
-    .info-tile {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 12px 14px;
-      min-width: 0;
-    }
-
-    .info-tile-k {
-      font-family: var(--font-mono);
-      font-size: 10.5px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--ink-muted);
-      margin-bottom: 4px;
-    }
-
-    .info-tile-v {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ink);
-      word-break: break-word;
-    }
-
-    .dns-section {
-      margin-bottom: 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-    }
-
-    .dns-section-head {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 14px;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .dns-item {
-      padding: 9px 14px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--ink);
-      border-bottom: 1px solid var(--border);
-      word-break: break-all;
-    }
-    .dns-item:last-child {
-      border-bottom: none;
-    }
-
-    .meter-box {
-      margin-bottom: 16px;
-      padding: 14px;
-      border-radius: var(--radius-sm);
-      background: var(--bg);
-      border: 1px solid var(--border);
-    }
-
-    .meter-top {
-      display: flex;
-      justify-content: space-between;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      margin-bottom: 8px;
-    }
-
-    .meter-track {
-      width: 100%;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--surface-elevated);
-      overflow: hidden;
-    }
-
-    .meter-bar {
-      height: 100%;
-      width: 0%;
-      border-radius: 999px;
-      background: var(--green);
-      transition: width 0.35s ease, background 0.35s ease;
-    }
-
-    .raw-viewer {
-      margin: 0;
-      padding: 16px;
-      border-radius: var(--radius-sm);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.55;
-      color: #CBD5E1;
-      max-height: 460px;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    /* Footer with GitHub Octocat Marks */
-    .footer {
-      margin-top: 28px;
-      padding-top: 18px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--ink-muted);
-    }
-
-    @media (min-width: 640px) {
-      .footer {
-        flex-direction: row;
-      }
-    }
-
-    .footer-links {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .gh-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 6px 12px;
-      border-radius: 8px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--ink);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 500;
-      transition: border-color 0.15s ease, color 0.15s ease;
-    }
-
-    .gh-chip:hover {
-      border-color: var(--border-focus);
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    .gh-chip svg {
-      width: 16px;
-      height: 16px;
-      fill: currentColor;
-      flex-shrink: 0;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0F1418">
+  <title>NetRecon | External attack surface reconnaissance</title>
+  <meta name="description" content="Run passive DNS, TLS, header and geolocation checks on any public domain or IP. Optional active port probing with consent. Findings ranked by severity.">
+  <link rel="canonical" href="https://netrecon.vercel.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="NetRecon | External attack surface reconnaissance">
+  <meta property="og:description" content="DNS, TLS, headers, geolocation and optional port probing, ranked by severity.">
+  <meta property="og:url" content="https://netrecon.vercel.app/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style nonce="{{ nonce }}">{% include "_styles.css" %}</style>
+  <script defer nonce="{{ nonce }}" src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+  <script defer nonce="{{ nonce }}" src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
 </head>
 <body>
-  <div class="page">
-    <!-- Top Nav -->
-    <header class="nav">
-      <div class="brand">
-        <div class="brand-icon" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-          </svg>
-        </div>
-        <h1 class="brand-wordmark">NetRecon <span class="version-pill">v2.0</span></h1>
-      </div>
+  <a class="skip" href="#results">Skip to results</a>
 
-      <div class="nav-status">
-        <span class="dot" id="statusDot"></span>
-        <span id="statusLabel">READY</span>
-      </div>
-    </header>
+  <header class="bar">
+    <a class="brand" href="/" aria-label="NetRecon home">
+      <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <circle cx="16" cy="16" r="3" fill="#8FD3FF"/>
+        <circle cx="16" cy="16" r="8" stroke="#8FD3FF" stroke-width="2" opacity="0.7"/>
+        <circle cx="16" cy="16" r="13" stroke="#8FD3FF" stroke-width="2" opacity="0.35"/>
+      </svg>
+      <span>NetRecon</span>
+      <span class="ver">v{{ version }}</span>
+    </a>
+    <nav aria-label="Primary">
+      <button class="btn small" id="printBtn" type="button" disabled>Print report</button>
+      <a class="btn small quiet" href="https://github.com/JoeBuildsThings/NetRecon">Source</a>
+    </nav>
+  </header>
 
-    <!-- Hero Stage: Command Left + Floating Unboxed 3D Earth Right -->
-    <section class="hero">
-      <div class="hero-command">
-        <h2 class="hero-headline">External Attack-Surface &amp; Network Reconnaissance</h2>
-
-        <form class="search-shell" id="scanForm">
-          <div class="search-input-wrap">
-            <span class="search-prompt">&gt;_</span>
-            <input
-              type="text"
-              id="targetInput"
-              class="search-input"
-              name="target"
-              placeholder="domain.com or public IP"
-              autocomplete="off"
-              spellcheck="false"
-              required
-            />
+  <main class="shell">
+    <div class="rail">
+      <section class="panel form" aria-labelledby="pageTitle">
+        <h1 id="pageTitle">External attack surface recon</h1>
+        <form id="scanForm" novalidate>
+          <label class="field-label" for="targetInput">Target</label>
+          <div class="input-wrap">
+            <input id="targetInput" type="text" name="target" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="255" placeholder="example.com or 1.1.1.1" aria-describedby="formError">
+            <kbd aria-hidden="true">/</kbd>
           </div>
-          <button type="submit" class="btn-scan" id="scanBtn">
-            <span id="scanBtnText">Scan Target</span>
-          </button>
+          <p class="form-error" id="formError" role="alert"></p>
+
+          <fieldset class="probe">
+            <legend>Probes</legend>
+            <label class="toggle"><input type="checkbox" id="activeToggle"><span>Active port probe</span></label>
+            <label class="consent" id="consentRow" hidden><input type="checkbox" id="consent"><span>I own this target or have written permission to test it.</span></label>
+          </fieldset>
+
+          <div class="actions">
+            <button class="btn primary" id="scanBtn" type="submit">Run recon</button>
+            <button class="btn" id="cancelBtn" type="button" hidden>Cancel</button>
+          </div>
         </form>
 
-        <div class="quick-row">
-          <span class="quick-label">Targets</span>
-          <button type="button" class="pill-btn" data-target="1.1.1.1">1.1.1.1</button>
-          <button type="button" class="pill-btn" data-target="8.8.8.8">8.8.8.8</button>
-          <button type="button" class="pill-btn" data-target="github.com">github.com</button>
-          <button type="button" class="pill-btn" data-target="vercel.com">vercel.com</button>
+        <div class="chips" id="samples">
+          <span class="chips-label">Try</span>
+          <button class="chip" type="button" data-target="example.com">example.com</button>
+          <button class="chip" type="button" data-target="github.com">github.com</button>
+          <button class="chip" type="button" data-target="1.1.1.1">1.1.1.1</button>
         </div>
 
-        <div class="recent-bar" id="recentBar"></div>
-
-        <div class="error-toast" id="errorToast" role="alert"></div>
-      </div>
-
-      <!-- Floating Unboxed 3D Earth -->
-      <div class="earth-stage">
-        <div class="earth-canvas-wrap" id="earthWrap" title="Drag or swipe to rotate Earth">
-          <canvas id="earthCanvas"></canvas>
+        <div class="recent" id="recent" hidden>
+          <div class="recent-head"><span>Recent</span><button class="btn small quiet" id="clearRecent" type="button">Clear</button></div>
+          <div class="chips" id="recentList"></div>
         </div>
-        <div class="earth-caption">
-          <span id="earthCoords">0.00° N, 0.00° E</span>
-          <button type="button" class="earth-action" id="spinBtn">Pause</button>
-          <button type="button" class="earth-action" id="lockBtn" style="display:none;">Center Target</button>
-          <a class="earth-action" id="mapLink" href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" style="display:none;">Map ↗</a>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- 4-Card Summary Strip -->
-    <section class="metrics-grid" aria-label="Telemetry Summary">
-      <div class="metric-card">
-        <div class="metric-label">Primary IP</div>
-        <div class="metric-val" id="mIp">—</div>
-        <div class="metric-sub" id="mPtr">PTR: —</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">ASN / Network</div>
-        <div class="metric-val" id="mAsn">—</div>
-        <div class="metric-sub" id="mOrg">—</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Open Ports</div>
-        <div class="metric-val" id="mPorts">—</div>
-        <div class="metric-sub" id="mPortsSub">22 TCP probes</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Web Grade</div>
-        <div class="metric-val" id="mGrade">—</div>
-        <div class="metric-sub" id="mTls">TLS: —</div>
-      </div>
-    </section>
-
-    <!-- Main Findings Workbench -->
-    <main class="results-panel">
-      <div class="results-toolbar">
-        <div class="tab-pills" role="tablist">
-          <button type="button" class="tab-pill active" role="tab" data-tab="ports">Ports <span id="cPorts"></span></button>
-          <button type="button" class="tab-pill" role="tab" data-tab="dns">DNS <span id="cDns"></span></button>
-          <button type="button" class="tab-pill" role="tab" data-tab="web">TLS &amp; Headers</button>
-          <button type="button" class="tab-pill" role="tab" data-tab="raw">JSON</button>
-        </div>
-
-        <div class="export-bar">
-          <button type="button" class="btn-export" id="copyMdBtn" disabled>Copy Markdown</button>
-          <button type="button" class="btn-export" id="exportJsonBtn" disabled>Export JSON</button>
-        </div>
-      </div>
-
-      <!-- Tab: Ports -->
-      <div class="tab-view active" id="view-ports">
-        <div class="empty-box" id="portsEmpty">Run a scan to inspect open ports and service banners.</div>
-        <div class="table-scroll" id="portsTableBox" style="display:none;">
-          <table>
-            <thead>
-              <tr>
-                <th>Port</th>
-                <th>Service</th>
-                <th>Exposure</th>
-                <th>Latency</th>
-                <th>Banner</th>
-              </tr>
-            </thead>
-            <tbody id="portsBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Tab: DNS -->
-      <div class="tab-view" id="view-dns">
-        <div class="empty-box" id="dnsEmpty">Run a scan to enumerate DNS records and infrastructure providers.</div>
-        <div id="dnsBox" style="display:none;">
-          <div class="info-grid" id="dnsSummaryGrid"></div>
-          <div id="dnsGroups"></div>
-        </div>
-      </div>
-
-      <!-- Tab: TLS & Headers -->
-      <div class="tab-view" id="view-web">
-        <div class="empty-box" id="webEmpty">Run a scan to audit TLS certificates and HTTP security headers.</div>
-        <div id="webBox" style="display:none;">
-          <div class="meter-box">
-            <div class="meter-top">
-              <span style="color:var(--ink-secondary);">Security Header Score</span>
-              <span class="mono" id="scoreLabel" style="font-weight:700;">0 / 100</span>
-            </div>
-            <div class="meter-track">
-              <div class="meter-bar" id="scoreBar"></div>
-            </div>
-          </div>
-          <div class="info-grid" id="tlsInfoGrid"></div>
-          <div class="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Header</th>
-                  <th>Status</th>
-                  <th>Value</th>
-                </tr>
-              </thead>
-              <tbody id="headersBody"></tbody>
-            </table>
+      <section class="panel globe" aria-labelledby="globeTitle">
+        <div class="globe-head">
+          <h2 id="globeTitle">Server location</h2>
+          <div class="globe-tools">
+            <button class="btn small quiet" id="spinBtn" type="button">Pause</button>
+            <button class="btn small quiet" id="lockBtn" type="button" hidden>Recenter</button>
           </div>
         </div>
+        <div class="globe-stage" id="globeStage"><canvas id="globeCanvas" role="img" aria-label="Interactive globe showing the target server location"></canvas></div>
+        <p class="globe-caption" id="globeCaption">Run a scan to place a target.</p>
+      </section>
+    </div>
+
+    <section class="panel results" id="results" aria-label="Results">
+      <div id="live" class="sr" aria-live="polite"></div>
+
+      <div id="emptyState" class="empty">
+        <h2>Enter a public domain or IP</h2>
+        <p>NetRecon runs four probes at once and ranks what it finds. Private and internal addresses are blocked.</p>
+        <dl>
+          <dt>Geo</dt><dd>Location, ASN and network owner</dd>
+          <dt>DNS</dt><dd>Records, providers, SPF and DMARC</dd>
+          <dt>Web</dt><dd>TLS certificate and security headers</dd>
+          <dt>Ports</dt><dd>22 common services, only with the active probe on</dd>
+        </dl>
       </div>
 
-      <!-- Tab: JSON -->
-      <div class="tab-view" id="view-raw">
-        <pre class="raw-viewer" id="rawJson">{}</pre>
+      <div id="loadingState" hidden aria-busy="true">
+        <div class="scanline"><span class="mono" id="scanTarget"></span><b id="scanTimer">0.0 s</b></div>
+        <div class="sk l"></div><div class="sk m"></div><div class="sk f"></div><div class="sk f"></div><div class="sk f"></div>
       </div>
-    </main>
 
-    <!-- Footer with GitHub Marks -->
-    <footer class="footer">
-      <span>NetRecon // External Reconnaissance</span>
-      <div class="footer-links">
-        <a class="gh-chip" href="https://github.com/JoeBuildsThings" target="_blank" rel="noopener noreferrer" aria-label="GitHub @JoeBuildsThings">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-          </svg>
-          <span>@JoeBuildsThings</span>
-        </a>
-        <a class="gh-chip" href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer" aria-label="NetRecon Source Code">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M2 2.5A2.5 2.5 0 014.5 0h8.75a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75h-2.5a.75.75 0 110-1.5h1.75v-2h-8a1 1 0 00-.714 1.7.75.75 0 01-1.072 1.05A2.495 2.495 0 012 11.5v-9zm10.5-1V9h-8c-.356 0-.694.074-1 .208V2.5a1 1 0 011-1h8zM5 12.25v3.25a.25.25 0 00.4.2l1.45-1.087a.25.25 0 01.3 0L8.6 15.7a.25.25 0 00.4-.2v-3.25a.25.25 0 00-.25-.25h-3.5a.25.25 0 00-.25.25z"/>
-          </svg>
-          <span>Source</span>
-        </a>
+      <div id="resultState" hidden>
+        <div class="headline">
+          <div>
+            <h2 id="resultTitle" tabindex="-1"></h2>
+            <p class="verdict" id="verdict"></p>
+            <p class="subline" id="subline"></p>
+          </div>
+          <div class="grade" id="grade" data-grade="">
+            <strong id="gradeLetter">N/A</strong>
+            <span>Web grade</span>
+          </div>
+        </div>
+        <div class="sevbar" id="sevbar" role="img" aria-label="Findings by severity"></div>
+        <div class="sevlegend" id="sevlegend"></div>
+        <div class="toolbar no-print">
+          <button class="btn small" id="copyMdBtn" type="button">Copy Markdown</button>
+          <button class="btn small" id="exportJsonBtn" type="button">Download JSON</button>
+        </div>
+        <p class="notice" id="partialNotice" role="status" hidden></p>
+
+        <div class="tabs" role="tablist" aria-label="Result sections" id="tablist">
+          <button class="tab" role="tab" id="tab-findings" aria-controls="panel-findings" aria-selected="true" type="button">Findings <span class="count" id="cFindings"></span></button>
+          <button class="tab" role="tab" id="tab-ports" aria-controls="panel-ports" aria-selected="false" tabindex="-1" type="button">Ports <span class="count" id="cPorts"></span></button>
+          <button class="tab" role="tab" id="tab-dns" aria-controls="panel-dns" aria-selected="false" tabindex="-1" type="button">DNS <span class="count" id="cDns"></span></button>
+          <button class="tab" role="tab" id="tab-web" aria-controls="panel-web" aria-selected="false" tabindex="-1" type="button">Web</button>
+          <button class="tab" role="tab" id="tab-target" aria-controls="panel-target" aria-selected="false" tabindex="-1" type="button">Target</button>
+          <button class="tab" role="tab" id="tab-raw" aria-controls="panel-raw" aria-selected="false" tabindex="-1" type="button">Raw</button>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="panel-findings" aria-labelledby="tab-findings"></div>
+        <div class="tabpanel" role="tabpanel" id="panel-ports" aria-labelledby="tab-ports" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-dns" aria-labelledby="tab-dns" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-web" aria-labelledby="tab-web" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-target" aria-labelledby="tab-target" hidden></div>
+        <div class="tabpanel" role="tabpanel" id="panel-raw" aria-labelledby="tab-raw" data-print-hide hidden></div>
       </div>
-    </footer>
-  </div>
+    </section>
+  </main>
 
-  <script>
-    // =========================================================================
-    // 1. Floating 3D Natural Earth Globe (D3-Geo Orthographic + World-Atlas)
-    // =========================================================================
-    (function initFloatingEarth() {
-      const wrap = document.getElementById('earthWrap');
-      const canvas = document.getElementById('earthCanvas');
-      const spinBtn = document.getElementById('spinBtn');
-      const lockBtn = document.getElementById('lockBtn');
-      const coordsEl = document.getElementById('earthCoords');
-      const ctx = canvas.getContext('2d');
+  <footer class="foot">
+    <span>Only scan systems you own or are authorized to test.</span>
+    <span><a href="/privacy">Privacy</a> &nbsp; <a href="https://github.com/JoeBuildsThings/NetRecon">Source</a></span>
+  </footer>
 
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      let autoSpin = !reducedMotion;
-      let rot = [-18, -16, 0]; // [lambda, phi, gamma]
-      let vel = [0, 0];
-      let targetRot = null;
-      let pin = null; // { lat, lon, city }
-      let worldLand = null;
-      let worldBorders = null;
-      let dragging = false;
-      let lastPos = [0, 0];
-      let pulse = 0;
+  <script nonce="{{ nonce }}">
+  (function () {
+    'use strict';
 
-      // Load real Natural Earth 110m TopoJSON geometry
-      fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-        .then(r => r.json())
-        .then(topology => {
-          if (window.topojson && topology.objects) {
-            worldLand = topojson.feature(topology, topology.objects.land);
-            worldBorders = topojson.mesh(topology, topology.objects.countries, (a, b) => a !== b);
+    var $ = function (id) { return document.getElementById(id); };
+    var SEV = ['critical', 'high', 'medium', 'low', 'info'];
+    var SEV_LABEL = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low', info: 'Info' };
+    var HIST_KEY = 'netrecon_recent_v2';
+    var PREF_KEY = 'netrecon_prefs_v1';
+    var SCAN_TIMEOUT_MS = 20000;
+    var WORLD_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json';
+    var WORLD_SRI = 'sha384-yOCJ+8ShBm8UDqtAVtAvxTDDf4gXo5edxl/YG0FmVC5OTmqVLl7utuVGBDEeZWHf';
+
+    function esc(val) {
+      return String(val == null ? '' : val)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    var el = {
+      form: $('scanForm'), input: $('targetInput'), formError: $('formError'),
+      activeToggle: $('activeToggle'), consentRow: $('consentRow'), consent: $('consent'),
+      scanBtn: $('scanBtn'), cancelBtn: $('cancelBtn'),
+      recent: $('recent'), recentList: $('recentList'), clearRecent: $('clearRecent'),
+      empty: $('emptyState'), loading: $('loadingState'), result: $('resultState'),
+      scanTarget: $('scanTarget'), scanTimer: $('scanTimer'), live: $('live'),
+      title: $('resultTitle'), verdict: $('verdict'), subline: $('subline'),
+      grade: $('grade'), gradeLetter: $('gradeLetter'),
+      sevbar: $('sevbar'), sevlegend: $('sevlegend'), partial: $('partialNotice'),
+      copyMd: $('copyMdBtn'), exportJson: $('exportJsonBtn'), printBtn: $('printBtn'),
+      tablist: $('tablist')
+    };
+
+    var state = { phase: 'idle', data: null, controller: null, timerId: null, startedAt: 0, cancelled: false };
+
+    /* Preferences and history */
+    function readJson(key, fallback) {
+      try { var v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; } catch (e) { return fallback; }
+    }
+    function writeJson(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage unavailable */ }
+    }
+
+    function renderHistory() {
+      var list = readJson(HIST_KEY, []);
+      if (!Array.isArray(list) || !list.length) { el.recent.hidden = true; el.recentList.innerHTML = ''; return; }
+      el.recent.hidden = false;
+      el.recentList.innerHTML = list.slice(0, 6).map(function (item) {
+        return '<button class="chip" type="button" data-host="' + esc(item.host) + '">' + esc(item.host) +
+          ' <span class="g">' + esc(item.grade || '') + '</span></button>';
+      }).join('');
+    }
+
+    function pushHistory(data) {
+      var list = readJson(HIST_KEY, []);
+      if (!Array.isArray(list)) list = [];
+      var entry = { host: data.target.host, grade: data.web.grade };
+      var next = [entry].concat(list.filter(function (x) { return x && x.host !== entry.host; })).slice(0, 6);
+      writeJson(HIST_KEY, next);
+      renderHistory();
+    }
+
+    /* Phase machine: idle, scanning, done */
+    function announce(text) { el.live.textContent = ''; setTimeout(function () { el.live.textContent = text; }, 30); }
+
+    function setPhase(phase) {
+      state.phase = phase;
+      var scanning = phase === 'scanning';
+      el.empty.hidden = phase !== 'idle';
+      el.loading.hidden = !scanning;
+      /* Keep the previous result on screen if a later scan fails, so work is never lost. */
+      el.result.hidden = scanning || !state.data;
+      el.cancelBtn.hidden = !scanning;
+      el.input.disabled = scanning;
+      el.activeToggle.disabled = scanning;
+      el.consent.disabled = scanning;
+      el.scanBtn.textContent = scanning ? 'Scanning' : 'Run recon';
+      updateSubmitState();
+    }
+
+    function updateSubmitState() {
+      var active = el.activeToggle.checked;
+      el.consentRow.hidden = !active;
+      var blocked = state.phase === 'scanning' || (active && !el.consent.checked);
+      el.scanBtn.disabled = blocked;
+      if (active && !el.consent.checked) el.scanBtn.setAttribute('aria-describedby', 'consentRow');
+      else el.scanBtn.removeAttribute('aria-describedby');
+    }
+
+    function showFormError(msg) {
+      el.formError.textContent = msg || '';
+      if (msg) el.input.setAttribute('aria-invalid', 'true'); else el.input.removeAttribute('aria-invalid');
+    }
+
+    function startTimer() {
+      state.startedAt = performance.now();
+      clearInterval(state.timerId);
+      state.timerId = setInterval(function () {
+        el.scanTimer.textContent = ((performance.now() - state.startedAt) / 1000).toFixed(1) + ' s';
+      }, 100);
+    }
+    function stopTimer() { clearInterval(state.timerId); state.timerId = null; }
+
+    /* Scan */
+    function runScan(raw) {
+      if (state.phase === 'scanning') return;
+      var target = String(raw == null ? el.input.value : raw).trim();
+      if (!target) { showFormError('Enter a domain or IP address.'); el.input.focus(); return; }
+      var active = el.activeToggle.checked;
+      if (active && !el.consent.checked) { showFormError('Confirm permission to run the port probe.'); return; }
+
+      el.input.value = target;
+      showFormError('');
+      state.cancelled = false;
+      state.controller = new AbortController();
+      var timeoutId = setTimeout(function () { if (state.controller) state.controller.abort(); }, SCAN_TIMEOUT_MS);
+
+      el.scanTarget.textContent = target;
+      el.scanTimer.textContent = '0.0 s';
+      setPhase('scanning');
+      startTimer();
+      announce('Scanning ' + target);
+
+      fetch('/api/recon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: target, active: active, authorized: active && el.consent.checked }),
+        signal: state.controller.signal
+      }).then(function (res) {
+        var retry = res.headers.get('Retry-After');
+        return res.json().then(function (body) { return { res: res, body: body, retry: retry }; }, function () {
+          return { res: res, body: null, retry: retry };
+        });
+      }).then(function (out) {
+        if (!out.body) { throw new Error('The service did not return a valid response. Try again.'); }
+        if (!out.res.ok || !out.body.ok) {
+          var msg = out.body.error || 'Scan failed.';
+          if (out.res.status === 429 && out.retry) msg += ' Try again in ' + out.retry + ' seconds.';
+          throw new Error(msg);
+        }
+        state.data = out.body;
+        render(out.body);
+        pushHistory(out.body);
+        finish();
+        announce('Scan complete for ' + out.body.target.host + '. ' + out.body.summary.total + ' findings.');
+        focusResults();
+      }).catch(function (err) {
+        var msg;
+        if (err && err.name === 'AbortError') msg = state.cancelled ? 'Scan cancelled.' : 'The scan took too long. Try again.';
+        else msg = (err && err.message) || 'Network error. Check your connection and try again.';
+        finish();
+        showFormError(msg);
+        announce(msg);
+      }).then(function () { clearTimeout(timeoutId); });
+    }
+
+    function finish() {
+      stopTimer();
+      state.controller = null;
+      setPhase(state.data ? 'done' : 'idle');
+      el.input.focus({ preventScroll: true });
+    }
+
+    function focusResults() {
+      var small = window.matchMedia('(max-width: 1023px)').matches;
+      el.title.focus({ preventScroll: !small });
+      if (small) el.title.scrollIntoView({ block: 'start' });
+    }
+
+    function cancelScan() {
+      if (state.controller) { state.cancelled = true; state.controller.abort(); }
+    }
+
+    /* Rendering */
+    function pill(cls, text) { return '<span class="pill ' + esc(cls) + '">' + esc(text) + '</span>'; }
+
+    function render(d) {
+      el.printBtn.disabled = false;
+      renderHeadline(d);
+      renderFindings(d);
+      renderPorts(d);
+      renderDns(d);
+      renderWeb(d);
+      renderTarget(d);
+      $('panel-raw').innerHTML = '<div class="toolbar no-print"><button class="btn small" id="copyRawBtn" type="button">Copy JSON</button></div><pre class="raw" id="rawJson"></pre>';
+      $('rawJson').textContent = JSON.stringify(d, null, 2);
+      $('copyRawBtn').addEventListener('click', function (e) { copyText(JSON.stringify(d, null, 2), e.currentTarget, 'Copy JSON'); });
+      globe.focus(d.geo.latitude, d.geo.longitude, [d.geo.city, d.geo.country_code || d.geo.country].filter(Boolean).join(', '), d.geo.source !== 'fallback');
+    }
+
+    function locationText(g) {
+      return [g.city, g.region, g.country].filter(function (x) { return x && x !== 'Unknown' && x !== 'Unavailable'; }).join(', ');
+    }
+
+    function renderHeadline(d) {
+      var s = d.summary, t = d.target, g = d.geo;
+      el.title.textContent = t.host;
+      var parts = SEV.filter(function (k) { return s[k] > 0 && k !== 'info'; }).map(function (k) { return s[k] + ' ' + SEV_LABEL[k].toLowerCase(); });
+      var real = s.total - s.info;
+      if (!s.total) el.verdict.textContent = 'No findings from the probes that ran.';
+      else if (!real) el.verdict.textContent = s.info + ' informational ' + (s.info === 1 ? 'note' : 'notes') + ', nothing to fix.';
+      else el.verdict.textContent = real + (real === 1 ? ' finding: ' : ' findings: ') + parts.join(', ') + '.';
+
+      var sub = [t.primary_ip, g.asn && g.asn !== 'N/A' ? g.asn : '', g.org && g.org !== 'Lookup unavailable' ? g.org : '', locationText(g)].filter(Boolean).join('  ');
+      el.subline.textContent = sub + (sub ? '  ' : '') + 'Scanned in ' + (d.elapsed_ms / 1000).toFixed(1) + ' s';
+
+      el.grade.setAttribute('data-grade', d.web.grade || '');
+      el.gradeLetter.textContent = d.web.grade || 'N/A';
+
+      el.sevbar.innerHTML = '';
+      var any = false;
+      SEV.forEach(function (k) {
+        if (!s[k]) return;
+        any = true;
+        var seg = document.createElement('i');
+        seg.className = k;
+        seg.style.flexGrow = String(s[k]);
+        seg.title = SEV_LABEL[k] + ': ' + s[k];
+        el.sevbar.appendChild(seg);
+      });
+      if (!any) { var none = document.createElement('i'); none.className = 'none'; el.sevbar.appendChild(none); }
+      el.sevbar.setAttribute('aria-label', 'Findings by severity: ' + (parts.join(', ') || 'none'));
+
+      el.sevlegend.innerHTML = SEV.map(function (k) {
+        return '<span><i class="dot ' + k + '"></i>' + SEV_LABEL[k] + ' ' + s[k] + '</span>';
+      }).join('');
+
+      var partial = (d.scan && d.scan.partial) || [];
+      el.partial.hidden = !partial.length;
+      if (partial.length) el.partial.textContent = 'No data from ' + partial.join(', ') + '. Run the scan again for a full picture.';
+
+      $('cFindings').textContent = String(s.total);
+      $('cPorts').textContent = d.ports.skipped ? 'off' : String(d.ports.open_count);
+      var recTotal = 0;
+      Object.keys(d.dns.records || {}).forEach(function (k) { recTotal += (d.dns.records[k] || []).length; });
+      $('cDns').textContent = String(recTotal);
+    }
+
+    function renderFindings(d) {
+      var list = d.findings || [];
+      var host = $('panel-findings');
+      if (!list.length) { host.innerHTML = '<p class="good">Nothing to report. Every probe that ran came back clean.</p>'; return; }
+      host.innerHTML = '<ul class="findings">' + list.map(function (f) {
+        return '<li>' + pill(f.severity, SEV_LABEL[f.severity] || f.severity) +
+          '<div><h3>' + esc(f.title) + '</h3><p class="area">' + esc(f.area) + '</p>' +
+          '<p class="detail">' + esc(f.detail) + '</p>' +
+          '<p class="fix"><b>Fix</b> ' + esc(f.fix) + '</p></div></li>';
+      }).join('') + '</ul>';
+    }
+
+    function renderPorts(d) {
+      var p = d.ports, host = $('panel-ports');
+      if (p.skipped) {
+        host.innerHTML = '<div class="state-empty"><p>The active port probe was off for this scan.</p><button class="btn" id="enableActive" type="button">Turn on active probe</button></div>';
+        $('enableActive').addEventListener('click', function () {
+          el.activeToggle.checked = true; updateSubmitState(); el.consent.focus();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        return;
+      }
+      if (!p.open_ports.length) {
+        host.innerHTML = '<p class="state-empty">0 open ports across ' + esc(p.scanned_count) + ' probed services in ' + esc(p.scan_ms) + ' ms.</p>';
+        return;
+      }
+      var risk = { high: ['high', 'High'], warn: ['medium', 'Warn'], info: ['info', 'Info'] };
+      host.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Port</th><th>Service</th><th>Risk</th><th>Latency</th><th>Banner</th></tr></thead><tbody>' +
+        p.open_ports.map(function (row) {
+          var r = risk[row.risk] || risk.info;
+          return '<tr><td class="num">' + esc(row.port) + '/tcp</td><td>' + esc(row.service) + '</td><td>' + pill(r[0], r[1]) +
+            '</td><td class="num">' + esc(row.latency_ms) + ' ms</td><td class="num">' + (row.banner ? esc(row.banner) : esc(row.note)) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+
+    function policyLabel(v) { return v ? v.charAt(0).toUpperCase() + v.slice(1) : 'Missing'; }
+
+    function renderDns(d) {
+      var host = $('panel-dns'), pos = d.dns.posture || {}, rec = d.dns.records || {};
+      var kv = '<dl class="kv">' +
+        '<dt>DNS provider</dt><dd>' + esc(pos.dns_provider || 'Unknown') + '</dd>' +
+        '<dt>Mail provider</dt><dd>' + esc(pos.mail_provider || 'Unknown') + '</dd>' +
+        '<dt>SPF</dt><dd>' + esc(pos.spf_configured ? policyLabel(pos.spf_policy) : 'Missing') + '</dd>' +
+        '<dt>DMARC</dt><dd>' + esc(pos.dmarc_configured ? policyLabel(pos.dmarc_policy) : 'Missing') + '</dd>' +
+        '<dt>Reverse DNS</dt><dd>' + esc((d.dns.ptr && d.dns.ptr.length) ? d.dns.ptr.join(', ') : 'None') + '</dd></dl>';
+      var groups = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'DMARC'].map(function (type) {
+        var list = rec[type] || [];
+        if (!list.length) return '';
+        return '<dt>' + esc(type) + '<span class="count">' + list.length + '</span></dt>' + list.map(function (v) { return '<dd>' + esc(v) + '</dd>'; }).join('');
+      }).join('');
+      host.innerHTML = '<div class="stack">' + kv + (groups ? '<div><p class="sub">Records</p><dl class="records">' + groups + '</dl></div>' : '<p class="state-empty">No public DNS records found.</p>') + '</div>';
+    }
+
+    function renderWeb(d) {
+      var w = d.web, tls = w.tls || {}, host = $('panel-web');
+      if (!w.reachable) { host.innerHTML = '<p class="state-empty">No web listener answered on ports 443 or 80.</p>'; return; }
+
+      var tlsHtml;
+      if (tls.available && tls.valid === false) {
+        tlsHtml = '<dl class="kv"><dt>Certificate</dt><dd>' + pill('high', 'Invalid') + ' ' + esc(tls.error) + '</dd>' +
+          '<dt>Protocol</dt><dd>' + esc(tls.protocol || 'Unknown') + '</dd><dt>Cipher</dt><dd>' + esc(tls.cipher || 'Unknown') + '</dd></dl>';
+      } else if (tls.available) {
+        tlsHtml = '<dl class="kv"><dt>Protocol</dt><dd>' + esc(tls.protocol) + '</dd><dt>Cipher</dt><dd>' + esc(tls.cipher) + '</dd>' +
+          '<dt>Issuer</dt><dd>' + esc(tls.issuer) + '</dd><dt>Subject</dt><dd>' + esc(tls.common_name) + ' (' + esc(tls.san_count) + ' names)</dd>' +
+          '<dt>Expires</dt><dd>' + esc(tls.expires_on) + (tls.days_remaining != null ? ' (' + esc(tls.days_remaining) + ' days)' : '') + '</dd></dl>';
+      } else {
+        tlsHtml = '<p class="state-empty">No TLS certificate available on 443.</p>';
+      }
+
+      var red = w.redirect || {};
+      var redirectText = red.http_to_https === true ? 'Redirects to HTTPS' : (red.http_to_https === false ? 'Does not redirect' : 'Port 80 did not answer');
+      var statusMap = { pass: ['pass', 'Pass'], weak: ['medium', 'Weak'], missing: ['high', 'Missing'] };
+      var rows = (w.headers || []).map(function (h) {
+        var s = statusMap[h.status] || statusMap.missing;
+        var val = h.value ? esc(h.value) : (h.note ? esc(h.note) : '');
+        return '<tr><td>' + esc(h.label) + '</td><td>' + pill(s[0], s[1]) + '</td><td class="num">' + val + '</td></tr>';
+      }).join('');
+      (w.disclosures || []).forEach(function (l) {
+        rows += '<tr><td>' + esc(l.header) + '</td><td>' + pill(l.versioned ? 'low' : 'info', 'Exposed') + '</td><td class="num">' + esc(l.value) + '</td></tr>';
+      });
+
+      host.innerHTML = '<div class="stack">' +
+        '<div><p class="sub">Transport</p>' + tlsHtml + '</div>' +
+        '<dl class="kv"><dt>HTTP</dt><dd>' + esc(redirectText) + (red.location ? ' (' + esc(red.location) + ')' : '') + '</dd>' +
+        '<dt>Score</dt><dd>' + esc(w.score) + ' of 100, grade ' + esc(w.grade) + '</dd></dl>' +
+        '<div><p class="sub">Headers</p><div class="table-wrap"><table><thead><tr><th>Header</th><th>Status</th><th>Value</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
+    }
+
+    function renderTarget(d) {
+      var t = d.target, g = d.geo;
+      var rows = [
+        ['Input', t.input], ['Host', t.host], ['Primary IP', t.primary_ip], ['All IPs', (t.all_ips || []).join(', ')],
+        ['ASN', g.asn], ['Organization', g.org], ['ISP', g.isp], ['Location', locationText(g) || 'Unknown'],
+        ['Coordinates', g.latitude + ', ' + g.longitude], ['Timezone', g.timezone], ['Geo source', g.source]
+      ];
+      var lat = encodeURIComponent(g.latitude), lon = encodeURIComponent(g.longitude);
+      var map = '<p class="state-empty"><a href="https://www.openstreetmap.org/?mlat=' + lat + '&amp;mlon=' + lon + '#map=10/' + lat + '/' + lon + '">Open in OpenStreetMap</a></p>';
+      $('panel-target').innerHTML = '<dl class="kv">' + rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd class="mono">' + esc(r[1]) + '</dd>'; }).join('') + '</dl>' + map;
+    }
+
+    /* Tabs */
+    var tabs = Array.prototype.slice.call(el.tablist.querySelectorAll('[role="tab"]'));
+    function selectTab(tab, focus) {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        $(t.getAttribute('aria-controls')).hidden = !on;
+      });
+      if (focus) tab.focus();
+    }
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () { selectTab(tab, false); });
+      tab.addEventListener('keydown', function (e) {
+        var n = null;
+        if (e.key === 'ArrowRight') n = tabs[(i + 1) % tabs.length];
+        else if (e.key === 'ArrowLeft') n = tabs[(i - 1 + tabs.length) % tabs.length];
+        else if (e.key === 'Home') n = tabs[0];
+        else if (e.key === 'End') n = tabs[tabs.length - 1];
+        if (n) { e.preventDefault(); selectTab(n, true); }
+      });
+    });
+
+    /* Export */
+    function copyText(text, btn, idle) {
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = idle; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { btn.textContent = 'Copy failed'; });
+      else btn.textContent = 'Copy failed';
+    }
+
+    function markdown(d) {
+      var s = d.summary, g = d.geo;
+      var lines = ['### NetRecon report for ' + d.target.host, '',
+        '* IP: `' + d.target.primary_ip + '`',
+        '* Network: ' + g.asn + ' ' + g.org,
+        '* Location: ' + (locationText(g) || 'Unknown'),
+        '* Web grade: ' + d.web.grade + ' (' + d.web.score + ' of 100)',
+        '* Open ports: ' + (d.ports.skipped ? 'probe off' : d.ports.open_count + ' of ' + d.ports.scanned_count),
+        '* Findings: ' + SEV.map(function (k) { return s[k] + ' ' + k; }).join(', '), '', '#### Findings', ''];
+      if (!d.findings.length) lines.push('None.');
+      d.findings.forEach(function (f) { lines.push('* **' + SEV_LABEL[f.severity] + '** ' + f.title + '. ' + f.detail + ' Fix: ' + f.fix); });
+      return lines.join('\n');
+    }
+
+    el.copyMd.addEventListener('click', function (e) { if (state.data) copyText(markdown(state.data), e.currentTarget, 'Copy Markdown'); });
+    el.exportJson.addEventListener('click', function () {
+      if (!state.data) return;
+      var blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'netrecon_' + state.data.target.host.replace(/[^a-z0-9.]/gi, '_') + '.json';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+    el.printBtn.addEventListener('click', function () { window.print(); });
+
+    /* Globe */
+    var globe = (function () {
+      var wrap = $('globeStage'), canvas = $('globeCanvas'), caption = $('globeCaption');
+      var spinBtn = $('spinBtn'), lockBtn = $('lockBtn');
+      var ctx = canvas.getContext('2d');
+      var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var autoSpin = !reduced, rot = [-18, -16, 0], vel = [0, 0], targetRot = null, pin = null;
+      var land = null, borders = null, dragging = false, last = [0, 0], pulse = 0, graticule = null;
+
+      if (reduced) spinBtn.textContent = 'Spin';
+
+      /* Deferred scripts finish before DOMContentLoaded, so d3 and topojson exist by then. */
+      document.addEventListener('DOMContentLoaded', function () {
+        fetch(WORLD_URL, { integrity: WORLD_SRI, mode: 'cors' }).then(function (r) { return r.json(); }).then(function (topo) {
+          if (window.topojson && topo.objects) {
+            land = topojson.feature(topo, topo.objects.land);
+            borders = topojson.mesh(topo, topo.objects.countries, function (a, b) { return a !== b; });
           }
-        })
-        .catch(() => {});
+        }).catch(function () { /* globe still renders without land data */ });
+      });
 
       function resize() {
-        const rect = wrap.getBoundingClientRect();
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        var rect = wrap.getBoundingClientRect();
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = Math.max(1, Math.floor(rect.width * dpr));
         canvas.height = Math.max(1, Math.floor(rect.height * dpr));
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-
-      new ResizeObserver(resize).observe(wrap);
+      if (window.ResizeObserver) new ResizeObserver(resize).observe(wrap);
       resize();
 
-      const graticule = window.d3 ? d3.geoGraticule().step([20, 20])() : null;
-
-      function render() {
-        const rect = wrap.getBoundingClientRect();
-        const size = Math.min(rect.width, rect.height);
-        const cx = rect.width / 2;
-        const cy = rect.height / 2;
-        const radius = size * 0.41;
-
+      function frame() {
+        var rect = wrap.getBoundingClientRect();
+        var cx = rect.width / 2, cy = rect.height / 2, radius = Math.min(rect.width, rect.height) * 0.43;
         ctx.clearRect(0, 0, rect.width, rect.height);
 
-        // Camera interpolation & inertia
         if (targetRot && !dragging && !autoSpin) {
-          const dLon = ((targetRot[0] - rot[0] + 540) % 360) - 180;
-          const dLat = targetRot[1] - rot[1];
-          if (Math.abs(dLon) > 0.12 || Math.abs(dLat) > 0.12) {
-            rot[0] = (rot[0] + dLon * 0.1) % 360;
-            rot[1] = rot[1] + dLat * 0.1;
-          } else {
-            rot[0] = targetRot[0];
-            rot[1] = targetRot[1];
-            targetRot = null;
-          }
+          var dLon = ((targetRot[0] - rot[0] + 540) % 360) - 180, dLat = targetRot[1] - rot[1];
+          if (Math.abs(dLon) > 0.12 || Math.abs(dLat) > 0.12) { rot[0] = (rot[0] + dLon * 0.1) % 360; rot[1] += dLat * 0.1; }
+          else { rot[0] = targetRot[0]; rot[1] = targetRot[1]; targetRot = null; }
         } else if (!dragging) {
           if (Math.abs(vel[0]) > 0.01 || Math.abs(vel[1]) > 0.01) {
-            rot[0] = (rot[0] + vel[0]) % 360;
-            rot[1] = Math.max(-75, Math.min(75, rot[1] + vel[1]));
-            vel[0] *= 0.92;
-            vel[1] *= 0.92;
-          } else if (autoSpin) {
-            rot[0] = (rot[0] + 0.22) % 360;
-          }
+            rot[0] = (rot[0] + vel[0]) % 360; rot[1] = Math.max(-75, Math.min(75, rot[1] + vel[1])); vel[0] *= 0.92; vel[1] *= 0.92;
+          } else if (autoSpin) { rot[0] = (rot[0] + 0.22) % 360; }
         }
-
         pulse += 0.05;
 
-        // 1. Soft Outer Atmospheric Glow (gives true floating-in-space depth)
-        const atmo = ctx.createRadialGradient(cx, cy, radius * 0.88, cx, cy, radius * 1.18);
-        atmo.addColorStop(0, 'rgba(56, 189, 248, 0.24)');
-        atmo.addColorStop(0.55, 'rgba(14, 165, 233, 0.08)');
-        atmo.addColorStop(1, 'rgba(9, 11, 14, 0)');
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius * 1.18, 0, Math.PI * 2);
-        ctx.fillStyle = atmo;
-        ctx.fill();
-
-        // 2. Ocean Sphere with 3D Directional Lighting
-        const ocean = ctx.createRadialGradient(
-          cx - radius * 0.34, cy - radius * 0.34, radius * 0.06,
-          cx, cy, radius
-        );
-        ocean.addColorStop(0, '#1B2A3E');
-        ocean.addColorStop(0.55, '#0F1724');
-        ocean.addColorStop(1, '#070B12');
-
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = ocean;
-        ctx.fill();
+        var ocean = ctx.createRadialGradient(cx - radius * 0.34, cy - radius * 0.34, radius * 0.06, cx, cy, radius);
+        ocean.addColorStop(0, '#1F2C38'); ocean.addColorStop(1, '#0B1015');
+        ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fillStyle = ocean; ctx.fill();
 
         if (window.d3) {
-          // True Spherical Orthographic Projection with 90-degree horizon clipping
-          const projection = d3.geoOrthographic()
-            .scale(radius)
-            .translate([cx, cy])
-            .clipAngle(90)
-            .rotate(rot);
-
-          const path = d3.geoPath(projection, ctx);
-
-          // 3. Latitude / Longitude Graticule
-          if (graticule) {
-            ctx.beginPath();
-            path(graticule);
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.11)';
-            ctx.lineWidth = 0.7;
-            ctx.stroke();
-          }
-
-          // 4. Natural Earth Continents
-          if (worldLand) {
-            ctx.beginPath();
-            path(worldLand);
-            ctx.fillStyle = '#1E293B';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
-            ctx.lineWidth = 1.0;
-            ctx.stroke();
-          }
-
-          // 5. Subtle Country Borders
-          if (worldBorders) {
-            ctx.beginPath();
-            path(worldBorders);
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
-            ctx.lineWidth = 0.55;
-            ctx.stroke();
-          }
-
-          // 6. Geodesic Arc & Pulsing Target Beacon
-          if (pin) {
-            const origin = [3.38, 6.52]; // Lagos reference origin
-            const arcLine = {
-              type: 'LineString',
-              coordinates: [origin, [pin.lon, pin.lat]]
-            };
-            ctx.beginPath();
-            path(arcLine);
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
-            ctx.lineWidth = 1.4;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Check if pin is on visible front hemisphere
-            const dist = d3.geoDistance([pin.lon, pin.lat], [-rot[0], -rot[1]]);
-            if (dist < Math.PI / 2) {
-              const projected = projection([pin.lon, pin.lat]);
-              if (projected) {
-                const [px, py] = projected;
-                const ring = 6 + Math.sin(pulse) * 4;
-
-                ctx.beginPath();
-                ctx.arc(px, py, ring, 0, Math.PI * 2);
-                ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
-                ctx.lineWidth = 1.6;
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(px, py, 4, 0, Math.PI * 2);
-                ctx.fillStyle = '#F59E0B';
-                ctx.fill();
-                ctx.strokeStyle = '#FFFFFF';
-                ctx.lineWidth = 1.3;
-                ctx.stroke();
-              }
+          if (!graticule) graticule = d3.geoGraticule().step([20, 20])();
+          var proj = d3.geoOrthographic().scale(radius).translate([cx, cy]).clipAngle(90).rotate(rot);
+          var path = d3.geoPath(proj, ctx);
+          ctx.beginPath(); path(graticule); ctx.strokeStyle = 'rgba(163, 176, 188, 0.14)'; ctx.lineWidth = 0.7; ctx.stroke();
+          if (land) { ctx.beginPath(); path(land); ctx.fillStyle = '#25323E'; ctx.fill(); ctx.strokeStyle = 'rgba(143, 211, 255, 0.55)'; ctx.lineWidth = 1; ctx.stroke(); }
+          if (borders) { ctx.beginPath(); path(borders); ctx.strokeStyle = 'rgba(163, 176, 188, 0.22)'; ctx.lineWidth = 0.55; ctx.stroke(); }
+          if (pin && d3.geoDistance([pin.lon, pin.lat], [-rot[0], -rot[1]]) < Math.PI / 2) {
+            var pt = proj([pin.lon, pin.lat]);
+            if (pt) {
+              ctx.beginPath(); ctx.arc(pt[0], pt[1], 7 + Math.sin(pulse) * 3.5, 0, Math.PI * 2);
+              ctx.strokeStyle = 'rgba(143, 211, 255, 0.75)'; ctx.lineWidth = 1.6; ctx.stroke();
+              ctx.beginPath(); ctx.arc(pt[0], pt[1], 4, 0, Math.PI * 2); ctx.fillStyle = '#E9EEF3'; ctx.fill();
             }
           }
         }
-
-        // 7. Crisp Atmospheric Fresnel Inner Rim
-        const rim = ctx.createRadialGradient(cx, cy, radius * 0.86, cx, cy, radius);
-        rim.addColorStop(0, 'rgba(56, 189, 248, 0)');
-        rim.addColorStop(1, 'rgba(56, 189, 248, 0.28)');
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = rim;
-        ctx.fill();
-
-        if (!document.hidden) {
-          requestAnimationFrame(render);
-        }
+        ctx.beginPath(); ctx.arc(cx, cy, radius - 0.5, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(143, 211, 255, 0.35)'; ctx.lineWidth = 1; ctx.stroke();
+        if (!document.hidden) requestAnimationFrame(frame);
       }
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) requestAnimationFrame(frame); });
 
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) requestAnimationFrame(render);
-      });
-
-      wrap.addEventListener('pointerdown', (e) => {
-        dragging = true;
-        vel = [0, 0];
-        lastPos = [e.clientX, e.clientY];
-        wrap.setPointerCapture(e.pointerId);
-      });
-
-      wrap.addEventListener('pointermove', (e) => {
+      wrap.addEventListener('pointerdown', function (e) { dragging = true; vel = [0, 0]; last = [e.clientX, e.clientY]; try { wrap.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } });
+      wrap.addEventListener('pointermove', function (e) {
         if (!dragging) return;
-        const dx = e.clientX - lastPos[0];
-        const dy = e.clientY - lastPos[1];
-        lastPos = [e.clientX, e.clientY];
-        vel = [dx * 0.35, -dy * 0.3];
-        rot[0] = (rot[0] + vel[0]) % 360;
-        rot[1] = Math.max(-75, Math.min(75, rot[1] + vel[1]));
+        var dx = e.clientX - last[0], dy = e.clientY - last[1];
+        last = [e.clientX, e.clientY]; vel = [dx * 0.35, -dy * 0.3];
+        rot[0] = (rot[0] + vel[0]) % 360; rot[1] = Math.max(-75, Math.min(75, rot[1] + vel[1]));
       });
+      wrap.addEventListener('pointerup', function (e) { dragging = false; try { wrap.releasePointerCapture(e.pointerId); } catch (x) { /* ignore */ } });
+      wrap.addEventListener('pointercancel', function () { dragging = false; });
 
-      wrap.addEventListener('pointerup', (e) => {
-        if (!dragging) return;
-        dragging = false;
-        try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
-      });
-
-      spinBtn.addEventListener('click', () => {
+      spinBtn.addEventListener('click', function () {
         autoSpin = !autoSpin;
-        spinBtn.textContent = autoSpin ? 'Pause' : 'Orbit';
-        if (!autoSpin && pin) {
-          targetRot = [-pin.lon, -pin.lat];
-        }
+        spinBtn.textContent = autoSpin ? 'Pause' : 'Spin';
+        if (!autoSpin && pin) targetRot = [-pin.lon, -pin.lat];
       });
-
-      lockBtn.addEventListener('click', () => {
+      lockBtn.addEventListener('click', function () {
         if (!pin) return;
-        autoSpin = false;
-        spinBtn.textContent = 'Orbit';
-        targetRot = [-pin.lon, -pin.lat];
+        autoSpin = false; spinBtn.textContent = 'Spin'; targetRot = [-pin.lon, -pin.lat];
       });
 
-      window.focusEarth = function(lat, lon, city) {
-        const nLat = Number(lat) || 0;
-        const nLon = Number(lon) || 0;
-        pin = { lat: nLat, lon: nLon, city: city || '' };
-        autoSpin = false;
-        vel = [0, 0];
-        spinBtn.textContent = 'Orbit';
-        lockBtn.style.display = 'inline-block';
-        targetRot = [-nLon, -nLat];
+      requestAnimationFrame(frame);
 
-        const latStr = `${Math.abs(nLat).toFixed(2)}° ${nLat >= 0 ? 'N' : 'S'}`;
-        const lonStr = `${Math.abs(nLon).toFixed(2)}° ${nLon >= 0 ? 'E' : 'W'}`;
-        coordsEl.textContent = city ? `${city} · ${latStr}, ${lonStr}` : `${latStr}, ${lonStr}`;
+      return {
+        focus: function (lat, lon, label, known) {
+          var nLat = Number(lat) || 0, nLon = Number(lon) || 0;
+          if (!known) { pin = null; caption.textContent = 'Location lookup unavailable.'; lockBtn.hidden = true; return; }
+          pin = { lat: nLat, lon: nLon };
+          autoSpin = false; vel = [0, 0]; spinBtn.textContent = 'Spin';
+          lockBtn.hidden = false; targetRot = [-nLon, -nLat];
+          var latStr = Math.abs(nLat).toFixed(2) + (nLat >= 0 ? ' N' : ' S');
+          var lonStr = Math.abs(nLon).toFixed(2) + (nLon >= 0 ? ' E' : ' W');
+          caption.textContent = (label ? label + '  ' : '') + latStr + ', ' + lonStr;
+          canvas.setAttribute('aria-label', 'Globe centered on ' + (label || latStr + ', ' + lonStr));
+        }
       };
-
-      spinBtn.textContent = autoSpin ? 'Pause' : 'Orbit';
-      requestAnimationFrame(render);
     })();
 
-    // =========================================================================
-    // 2. NetRecon Workbench Controller
-    // =========================================================================
-    const scanForm = document.getElementById('scanForm');
-    const targetInput = document.getElementById('targetInput');
-    const scanBtn = document.getElementById('scanBtn');
-    const scanBtnText = document.getElementById('scanBtnText');
-    const errorToast = document.getElementById('errorToast');
-    const statusDot = document.getElementById('statusDot');
-    const statusLabel = document.getElementById('statusLabel');
-    const copyMdBtn = document.getElementById('copyMdBtn');
-    const exportJsonBtn = document.getElementById('exportJsonBtn');
-    const recentBar = document.getElementById('recentBar');
+    /* Wiring */
+    el.form.addEventListener('submit', function (e) { e.preventDefault(); runScan(); });
+    el.cancelBtn.addEventListener('click', cancelScan);
+    el.input.addEventListener('input', function () { if (el.formError.textContent) showFormError(''); });
 
-    let latestData = null;
-    const HIST_KEY = 'netrecon_recent_v2';
+    el.activeToggle.addEventListener('change', function () {
+      writeJson(PREF_KEY, { active: el.activeToggle.checked });
+      if (!el.activeToggle.checked) el.consent.checked = false;
+      updateSubmitState();
+      if (el.activeToggle.checked) el.consent.focus();
+    });
+    el.consent.addEventListener('change', updateSubmitState);
 
-    function esc(val) {
-      return String(val ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
+    $('samples').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-target]');
+      if (b) { el.input.value = b.getAttribute('data-target'); runScan(b.getAttribute('data-target')); }
+    });
+    el.recentList.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-host]');
+      if (b) { el.input.value = b.getAttribute('data-host'); runScan(b.getAttribute('data-host')); }
+    });
+    el.clearRecent.addEventListener('click', function () { writeJson(HIST_KEY, []); renderHistory(); el.input.focus(); });
 
-    function setStatus(cls, text) {
-      statusDot.className = 'dot' + (cls ? ' ' + cls : '');
-      statusLabel.textContent = text;
-    }
-
-    function showError(msg) {
-      errorToast.textContent = msg;
-      errorToast.classList.add('visible');
-      setStatus('error', 'FAILED');
-    }
-
-    function clearError() {
-      errorToast.textContent = '';
-      errorToast.classList.remove('visible');
-    }
-
-    document.querySelectorAll('.tab-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('view-' + btn.dataset.tab).classList.add('active');
-      });
+    document.addEventListener('keydown', function (e) {
+      var tag = (e.target && e.target.tagName) || '';
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); el.input.focus(); el.input.select(); }
+      if (e.key === 'Escape' && state.phase === 'scanning') cancelScan();
     });
 
-    document.querySelectorAll('.pill-btn[data-target]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        targetInput.value = btn.dataset.target;
-        runScan(btn.dataset.target);
-      });
-    });
-
-    function renderScan(data) {
-      latestData = data;
-      copyMdBtn.disabled = false;
-      exportJsonBtn.disabled = false;
-
-      const t = data.target;
-      const g = data.geo;
-      const p = data.ports;
-      const d = data.dns;
-      const w = data.web;
-
-      // Summary Cards
-      document.getElementById('mIp').textContent = t.primary_ip;
-      document.getElementById('mPtr').textContent = (d.ptr && d.ptr.length) ? d.ptr[0] : (t.is_ip ? 'No PTR' : t.host);
-
-      document.getElementById('mAsn').textContent = g.asn || 'N/A';
-      document.getElementById('mOrg').textContent = g.org || g.isp || '—';
-
-      document.getElementById('mPorts').textContent = `${p.open_count} Open`;
-      document.getElementById('mPortsSub').textContent = `${p.scanned_count} probed · ${p.scan_ms} ms`;
-      document.getElementById('cPorts').textContent = `(${p.open_count})`;
-
-      document.getElementById('mGrade').textContent = w.grade || 'N/A';
-      document.getElementById('mTls').textContent = (w.tls && w.tls.available)
-        ? `${w.tls.protocol} · ${w.tls.days_remaining}d left`
-        : (w.reachable ? 'HTTP only' : 'No web listener');
-
-      // Globe & Map Link
-      const locText = [g.city, g.country_code || g.country].filter(Boolean).join(', ');
-      const mapLink = document.getElementById('mapLink');
-      mapLink.href = `https://www.openstreetmap.org/?mlat=${g.latitude}&mlon=${g.longitude}#map=10/${g.latitude}/${g.longitude}`;
-      mapLink.style.display = 'inline-block';
-
-      if (window.focusEarth) {
-        window.focusEarth(g.latitude, g.longitude, locText);
-      }
-
-      // 1. Ports Tab
-      const portsEmpty = document.getElementById('portsEmpty');
-      const portsTableBox = document.getElementById('portsTableBox');
-      const portsBody = document.getElementById('portsBody');
-
-      if (!p.open_ports || !p.open_ports.length) {
-        portsTableBox.style.display = 'none';
-        portsEmpty.style.display = 'block';
-        portsEmpty.textContent = `0 open ports across ${p.scanned_count} probed services (${p.scan_ms} ms).`;
-      } else {
-        portsEmpty.style.display = 'none';
-        portsTableBox.style.display = 'block';
-        portsBody.innerHTML = p.open_ports.map(row => {
-          const badgeCls = row.risk === 'high' ? 'badge-red' : (row.risk === 'warn' ? 'badge-amber' : 'badge-blue');
-          const banner = row.banner ? esc(row.banner) : `<span style="color:var(--ink-muted);">${esc(row.note)}</span>`;
-          return `
-            <tr>
-              <td class="mono" style="font-weight:700;color:var(--green);">${esc(row.port)}/tcp</td>
-              <td class="mono">${esc(row.service)}</td>
-              <td><span class="badge ${badgeCls}">${esc(row.risk)}</span></td>
-              <td class="mono" style="color:var(--ink-secondary);">${esc(row.latency_ms)} ms</td>
-              <td class="banner-col">${banner}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      // 2. DNS Tab
-      document.getElementById('dnsEmpty').style.display = 'none';
-      document.getElementById('dnsBox').style.display = 'block';
-
-      const pos = d.posture || {};
-      document.getElementById('dnsSummaryGrid').innerHTML = `
-        <div class="info-tile">
-          <div class="info-tile-k">DNS Provider</div>
-          <div class="info-tile-v">${esc(pos.dns_provider || '—')}</div>
-        </div>
-        <div class="info-tile">
-          <div class="info-tile-k">Mail Provider</div>
-          <div class="info-tile-v">${esc(pos.mail_provider || '—')}</div>
-        </div>
-        <div class="info-tile">
-          <div class="info-tile-k">SPF</div>
-          <div class="info-tile-v">${pos.spf_configured ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Missing</span>'}</div>
-        </div>
-        <div class="info-tile">
-          <div class="info-tile-k">DMARC</div>
-          <div class="info-tile-v">${pos.dmarc_configured ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-amber">Missing</span>'}</div>
-        </div>
-      `;
-
-      const recTypes = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT', 'DMARC'];
-      let recTotal = 0;
-      const dnsHtml = recTypes.map(type => {
-        const list = (d.records && d.records[type]) || [];
-        recTotal += list.length;
-        if (!list.length) return '';
-        return `
-          <div class="dns-section">
-            <div class="dns-section-head"><span>${type}</span><span>${list.length}</span></div>
-            ${list.map(v => `<div class="dns-item">${esc(v)}</div>`).join('')}
-          </div>
-        `;
-      }).join('');
-
-      document.getElementById('cDns').textContent = `(${recTotal})`;
-      document.getElementById('dnsGroups').innerHTML = dnsHtml || '<div class="empty-box">No public DNS records found.</div>';
-
-      // 3. TLS & Headers Tab
-      document.getElementById('webEmpty').style.display = 'none';
-      document.getElementById('webBox').style.display = 'block';
-
-      const score = Number(w.score || 0);
-      document.getElementById('scoreLabel').textContent = `${score} / 100 (${w.grade || 'N/A'})`;
-      const scoreBar = document.getElementById('scoreBar');
-      scoreBar.style.width = `${Math.max(0, Math.min(100, score))}%`;
-      scoreBar.style.background = score >= 75 ? 'var(--green)' : (score >= 45 ? 'var(--amber)' : 'var(--red)');
-
-      const tls = w.tls || {};
-      document.getElementById('tlsInfoGrid').innerHTML = tls.available ? `
-        <div class="info-tile">
-          <div class="info-tile-k">TLS / Cipher</div>
-          <div class="info-tile-v">${esc(tls.protocol)} · ${esc(tls.cipher)}</div>
-        </div>
-        <div class="info-tile">
-          <div class="info-tile-k">Issuer</div>
-          <div class="info-tile-v">${esc(tls.issuer)}</div>
-        </div>
-        <div class="info-tile">
-          <div class="info-tile-k">Subject (${esc(tls.san_count)} SANs)</div>
-          <div class="info-tile-v">${esc(tls.common_name)}</div>
-        </div>
-        <div class="info-tile">
-          <div class="info-tile-k">Expiry</div>
-          <div class="info-tile-v">${esc(tls.days_remaining)} days</div>
-        </div>
-      ` : `
-        <div class="info-tile" style="grid-column: 1 / -1;">
-          <div class="info-tile-k">TLS Certificate</div>
-          <div class="info-tile-v" style="color:var(--ink-secondary);">No active TLS certificate on 443/tcp</div>
-        </div>
-      `;
-
-      const headersBody = document.getElementById('headersBody');
-      if (!w.reachable || !w.headers || !w.headers.length) {
-        headersBody.innerHTML = '<tr><td colspan="3" class="mono" style="color:var(--ink-muted);">No HTTP response</td></tr>';
-      } else {
-        let rows = w.headers.map(h => `
-          <tr>
-            <td class="mono" style="font-weight:600;">${esc(h.label)}</td>
-            <td>${h.present ? '<span class="badge badge-green">Pass</span>' : '<span class="badge badge-amber">Missing</span>'}</td>
-            <td class="banner-col">${h.present ? esc(h.value) : '<span style="color:var(--ink-muted);">—</span>'}</td>
-          </tr>
-        `).join('');
-
-        if (w.disclosures && w.disclosures.length) {
-          rows += w.disclosures.map(leak => `
-            <tr>
-              <td class="mono" style="color:var(--amber);">${esc(leak.header)}</td>
-              <td><span class="badge badge-red">Exposed</span></td>
-              <td class="banner-col">${esc(leak.value)}</td>
-            </tr>
-          `).join('');
-        }
-        headersBody.innerHTML = rows;
-      }
-
-      // 4. Raw JSON Tab
-      document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
-    }
-
-    function pushHistory(data) {
-      try {
-        const list = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
-        const entry = {
-          host: data.target.host,
-          grade: data.web.grade
-        };
-        const next = [entry, ...list.filter(x => x.host !== entry.host)].slice(0, 6);
-        localStorage.setItem(HIST_KEY, JSON.stringify(next));
-        renderHistory();
-      } catch (_) {}
-    }
-
-    function renderHistory() {
-      try {
-        const list = JSON.parse(localStorage.getItem(HIST_KEY) || '[]');
-        if (!list.length) {
-          recentBar.classList.remove('has-items');
-          recentBar.innerHTML = '';
-          return;
-        }
-        recentBar.classList.add('has-items');
-        recentBar.innerHTML = '<span class="quick-label">Recent</span>' + list.map(item => `
-          <button type="button" class="hist-pill" data-host="${esc(item.host)}">
-            <span>${esc(item.host)}</span>
-            <span style="color:var(--ink-muted);">${esc(item.grade)}</span>
-          </button>
-        `).join('');
-
-        recentBar.querySelectorAll('.hist-pill').forEach(btn => {
-          btn.addEventListener('click', () => {
-            targetInput.value = btn.dataset.host;
-            runScan(btn.dataset.host);
-          });
-        });
-      } catch (_) {}
-    }
-
-    async function runScan(raw) {
-      const target = (raw || targetInput.value || '').trim();
-      if (!target) return;
-
-      clearError();
-      scanBtn.disabled = true;
-      scanBtnText.textContent = 'Scanning...';
-      setStatus('scanning', 'PROBING');
-
-      try {
-        const res = await fetch('/api/recon', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          showError(data.error || 'Scan failed');
-          return;
-        }
-        renderScan(data);
-        pushHistory(data);
-        setStatus('', `${data.elapsed_ms} ms`);
-      } catch (_) {
-        showError('Network error contacting /api/recon');
-      } finally {
-        scanBtn.disabled = false;
-        scanBtnText.textContent = 'Scan Target';
-      }
-    }
-
-    scanForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      runScan(targetInput.value);
-    });
-
-    copyMdBtn.addEventListener('click', async () => {
-      if (!latestData) return;
-      const d = latestData;
-      const ports = d.ports.open_ports.length
-        ? d.ports.open_ports.map(p => `${p.port}/${p.service} (${p.latency_ms}ms)`).join(', ')
-        : 'None';
-      const md = [
-        `### NetRecon — ${d.target.host}`,
-        `- **IP:** \`${d.target.primary_ip}\``,
-        `- **ASN:** \`${d.geo.asn}\` (${d.geo.org})`,
-        `- **Geo:** ${d.geo.city}, ${d.geo.country} (\`${d.geo.latitude}, ${d.geo.longitude}\`)`,
-        `- **Ports (${d.ports.open_count}/${d.ports.scanned_count}):** ${ports}`,
-        `- **Grade:** \`${d.web.grade}\` (${d.web.score}/100)`
-      ].join('\n');
-
-      try {
-        await navigator.clipboard.writeText(md);
-        copyMdBtn.textContent = 'Copied';
-        setTimeout(() => { copyMdBtn.textContent = 'Copy Markdown'; }, 1400);
-      } catch (_) {}
-    });
-
-    exportJsonBtn.addEventListener('click', () => {
-      if (!latestData) return;
-      const blob = new Blob([JSON.stringify(latestData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `netrecon-${latestData.target.host}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-
+    var prefs = readJson(PREF_KEY, {});
+    el.activeToggle.checked = !!(prefs && prefs.active);
     renderHistory();
+    setPhase('idle');
+  })();
   </script>
 </body>
 </html>

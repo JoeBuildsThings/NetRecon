@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0F1418">
+  <title>Privacy | NetRecon</title>
+  <meta name="description" content="What NetRecon collects when you run a scan, why, who receives it, and how long it is kept.">
+  <link rel="canonical" href="https://netrecon.vercel.app/privacy">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style nonce="{{ nonce }}">{% include "_styles.css" %}</style>
+</head>
+<body>
+  <header class="bar">
+    <a class="brand" href="/" aria-label="NetRecon home"><span>NetRecon</span><span class="ver">v{{ version }}</span></a>
+    <nav aria-label="Primary"><a class="btn small quiet" href="/">Back to scanner</a></nav>
+  </header>
+  <main class="doc">
+    <h1>Privacy</h1>
+    <p class="meta">Last updated November 14, 2026</p>
+
+    <h2>Data collected</h2>
+    <ul>
+      <li>The target you enter (a domain or IP address) and the options you choose.</li>
+      <li>Your IP address, seen by the hosting platform and used as a rate limit key.</li>
+      <li>A short list of recent targets, stored only in your browser.</li>
+    </ul>
+    <p>There are no accounts, no cookies set by this site, and no analytics.</p>
+
+    <h2>Why it is collected</h2>
+    <ul>
+      <li>The target is needed to run the scan.</li>
+      <li>Your IP address limits how many scans one client can run, which prevents abuse.</li>
+      <li>Recent targets let you rerun a scan without retyping.</li>
+    </ul>
+
+    <h2>Third parties</h2>
+    <ul>
+      <li>Vercel hosts the site and keeps standard request logs.</li>
+      <li>ipwho.is and ipapi.co receive the IP address of the target to return its location and network owner.</li>
+      <li>Cloudflare (1.1.1.1) and Google (8.8.8.8) public DNS resolvers receive the domain you scan.</li>
+      <li>jsDelivr serves the map libraries and map data to your browser and sees your IP address.</li>
+      <li>Google Fonts serves the typefaces to your browser and sees your IP address.</li>
+      <li>Upstash stores rate limit counters keyed by your IP address, only if the operator has configured it.</li>
+      <li>The target itself receives the probe traffic, which comes from the server and not from your device.</li>
+    </ul>
+
+    <h2>Storage and retention</h2>
+    <ul>
+      <li>Scan results are not stored on the server. They are returned to you and then discarded.</li>
+      <li>Rate limit counters in server memory or Upstash expire within about a minute.</li>
+      <li>Request logs kept by Vercel follow Vercel's own retention policy.</li>
+      <li>Recent targets stay in your browser until you press Clear or clear site data.</li>
+    </ul>
+
+    <h2>Your rights</h2>
+    <p>Because no account data is stored, there is nothing to export or correct. You can delete your recent targets with the Clear button. For anything else, open an issue on the project page.</p>
+
+    <h2>Children</h2>
+    <p>This tool is built for security work and is not aimed at children under 13.</p>
+
+    <h2>Security</h2>
+    <p>Connections use HTTPS. Requests to private and internal networks are blocked, active port probing needs your explicit confirmation, and a strict content security policy limits what the page can load.</p>
+
+    <h2>Contact</h2>
+    <p>Open an issue at <a href="https://github.com/JoeBuildsThings/NetRecon/issues">github.com/JoeBuildsThings/NetRecon/issues</a>.</p>
+  </main>
+  <footer class="foot"><span>Only scan systems you own or are authorized to test.</span><a href="/">Scanner</a></footer>
+</body>
+</html>
