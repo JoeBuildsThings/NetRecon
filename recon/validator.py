@@ -6,14 +6,14 @@ from urllib.parse import urlparse
 
 
 HOSTNAME_RE = re.compile(
-    r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$"
+    r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{0,61}[a-z][a-z0-9-]{0,61}(?<!-))+$"
 )
 
 CGNAT_NET = ipaddress.ip_network("100.64.0.0/10")
 
 
 class TargetValidationError(ValueError):
-    """Raised when a user-supplied target is malformed or points to a restricted network."""
+    """Raised when a user supplied target is malformed or points to a restricted network."""
 
 
 @dataclass
@@ -25,25 +25,28 @@ class ValidatedTarget:
     is_ip: bool
 
 
-def _is_disallowed_ip(ip_str: str) -> bool:
-    ip_obj = ipaddress.ip_address(ip_str)
-    if (
-        ip_obj.is_private
-        or ip_obj.is_loopback
-        or ip_obj.is_link_local
-        or ip_obj.is_multicast
-        or ip_obj.is_reserved
-        or ip_obj.is_unspecified
-    ):
+def is_disallowed_ip(ip_str: str) -> bool:
+    """Allowlist check permitting only globally routable unicast addresses."""
+    try:
+        ip_obj = ipaddress.ip_address(ip_str)
+    except ValueError:
         return True
+
+    if ip_obj.version == 6 and ip_obj.ipv4_mapped is not None:
+        ip_obj = ip_obj.ipv4_mapped
+
     if ip_obj.version == 4 and ip_obj in CGNAT_NET:
         return True
-    return False
+
+    return (not ip_obj.is_global) or ip_obj.is_multicast
 
 
-def normalize_and_validate(raw_target: str) -> ValidatedTarget:
+_is_disallowed_ip = is_disallowed_ip
+
+
+def extract_host(raw_target: str) -> str:
     if not raw_target or not isinstance(raw_target, str):
-        raise TargetValidationError("Enter a public IPv4/IPv6 address or domain name.")
+        raise TargetValidationError("Enter a public IPv4, IPv6, or domain target.")
 
     cleaned = raw_target.strip()
     if len(cleaned) > 255:
@@ -51,12 +54,16 @@ def normalize_and_validate(raw_target: str) -> ValidatedTarget:
 
     if "://" in cleaned:
         parsed = urlparse(cleaned)
+        if parsed.scheme.lower() not in {"http", "https"}:
+            raise TargetValidationError("Only HTTP and HTTPS schemes are supported.")
         host = parsed.hostname or ""
     else:
         without_path = cleaned.split("/")[0].split("?")[0].split("#")[0]
         if "@" in without_path:
             without_path = without_path.split("@")[-1]
         if without_path.startswith("["):
+            if "]" not in without_path:
+                raise TargetValidationError("Malformed bracketed IPv6 literal.")
             host = without_path.split("]")[0].lstrip("[")
         elif without_path.count(":") == 1:
             host = without_path.split(":")[0]
@@ -66,36 +73,43 @@ def normalize_and_validate(raw_target: str) -> ValidatedTarget:
     host = host.strip().rstrip(".").lower()
     if not host:
         raise TargetValidationError("Could not extract a valid hostname or IP address.")
+    return host
 
-    if host in {"localhost", "ip6-localhost", "ip6-loopback"} or host.endswith(".local"):
+
+def normalize_and_validate(raw_target: str) -> ValidatedTarget:
+    host = extract_host(raw_target)
+
+    if host in {"localhost", "ip6-localhost", "ip6-loopback"} or host.endswith(".local") or host.endswith(".internal"):
         raise TargetValidationError("Local and internal hostnames are blocked.")
 
     try:
         ip_obj = ipaddress.ip_address(host)
-        if _is_disallowed_ip(str(ip_obj)):
-            raise TargetValidationError("Private, loopback, and reserved IP ranges are blocked.")
+        if is_disallowed_ip(str(ip_obj)):
+            raise TargetValidationError("Private, loopback, link local, CGNAT, and reserved IP ranges are blocked.")
+        canonical = str(ip_obj.ipv4_mapped) if (ip_obj.version == 6 and ip_obj.ipv4_mapped) else str(ip_obj)
         return ValidatedTarget(
             raw_input=raw_target.strip(),
-            host=str(ip_obj),
-            primary_ip=str(ip_obj),
-            all_ips=[str(ip_obj)],
+            host=canonical,
+            primary_ip=canonical,
+            all_ips=[canonical],
             is_ip=True,
         )
-    except ValueError:
-        pass
+    except ValueError as exc:
+        if isinstance(exc, TargetValidationError):
+            raise
 
     if not HOSTNAME_RE.match(host):
         raise TargetValidationError("Invalid domain or IP format. Example: example.com or 1.1.1.1")
 
     try:
         addr_info = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
-    except socket.gaierror:
-        raise TargetValidationError(f"DNS resolution failed for '{host}'. Verify the domain exists.")
+    except socket.gaierror as exc:
+        raise TargetValidationError(f"DNS resolution failed for '{host}'. Verify the domain exists.") from exc
 
     resolved_ips: list[str] = []
     for entry in addr_info:
         candidate = entry[4][0]
-        if _is_disallowed_ip(candidate):
+        if is_disallowed_ip(candidate):
             raise TargetValidationError("Target resolves to a private or restricted IP address.")
         if candidate not in resolved_ips:
             resolved_ips.append(candidate)
