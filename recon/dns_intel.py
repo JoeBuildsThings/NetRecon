@@ -1,8 +1,11 @@
+from concurrent.futures import ThreadPoolExecutor
+import re
+
 import dns.resolver
 import dns.reversename
 
 
-def _make_resolver() -> dns.resolver.Resolver:
+def _make_resolver():
     resolver = dns.resolver.Resolver(configure=False)
     resolver.nameservers = ["1.1.1.1", "8.8.8.8"]
     resolver.timeout = 1.5
@@ -10,102 +13,163 @@ def _make_resolver() -> dns.resolver.Resolver:
     return resolver
 
 
-def _query_records(resolver: dns.resolver.Resolver, qname: str, rdtype: str) -> list[str]:
+def _clean_txt(text):
+    return text.replace('" "', "").strip('"')
+
+
+def _query_records(qname, rdtype):
     try:
-        answers = resolver.resolve(qname, rdtype)
-        records = [rdata.to_text().strip('"') for rdata in answers]
+        answers = _make_resolver().resolve(qname, rdtype)
+        records = [_clean_txt(rdata.to_text().strip()) for rdata in answers]
         return records[:12]
     except Exception:
         return []
 
 
-def _fingerprint_providers(ns_records: list[str], mx_records: list[str], txt_records: list[str], dmarc_records: list[str]) -> dict:
-    ns_joined = " ".join(ns_records).lower()
-    mx_joined = " ".join(mx_records).lower()
-    txt_joined = " ".join(txt_records).lower()
+def _hosts(records):
+    """Hostnames from NS or MX answers, lowercase, no priority, no trailing dot."""
+    return [r.split()[-1].lower().rstrip(".") for r in records if r.split()]
+
+
+def _matches(hosts, suffixes):
+    return any(h == s or h.endswith("." + s) for h in hosts for s in suffixes)
+
+
+NS_PROVIDERS = [
+    ("Cloudflare DNS", ("cloudflare.com",)),
+    ("Vercel DNS", ("vercel-dns.com",)),
+    ("Google Cloud DNS", ("googledomains.com", "google.com")),
+    ("Azure DNS", ("azure-dns.com", "azure-dns.net", "azure-dns.org", "azure-dns.info")),
+    ("DigitalOcean DNS", ("digitalocean.com",)),
+    ("Namecheap DNS", ("registrar-servers.com", "namecheap.com")),
+]
+
+MX_PROVIDERS = [
+    ("Google Workspace", ("google.com", "googlemail.com")),
+    ("Microsoft 365", ("outlook.com", "protection.outlook.com")),
+    ("Zoho Mail", ("zoho.com", "zoho.eu", "zoho.in")),
+    ("Proton Mail", ("protonmail.ch", "proton.ch")),
+    ("MXroute", ("mxroute.com",)),
+    ("ImprovMX", ("improvmx.com",)),
+]
+
+
+def _spf_policy(txt_records):
+    for record in txt_records:
+        if record.lower().startswith("v=spf1"):
+            match = re.search(r"(?:^|\s)([+~?-]?)all(?:\s|$)", record.lower())
+            if not match:
+                return "none"
+            return {"-": "fail", "~": "softfail", "?": "neutral"}.get(match.group(1), "pass")
+    return None
+
+
+def _dmarc_policy(dmarc_records):
+    for record in dmarc_records:
+        if "v=dmarc1" in record.lower():
+            match = re.search(r"(?:^|;)\s*p=(none|quarantine|reject)", record.lower())
+            return match.group(1) if match else "none"
+    return None
+
+
+def _fingerprint_providers(ns_records, mx_records, txt_records, dmarc_records):
+    ns_hosts = _hosts(ns_records)
+    mx_hosts = _hosts(mx_records)
 
     dns_provider = "Custom / Other"
-    if "cloudflare" in ns_joined:
-        dns_provider = "Cloudflare DNS"
-    elif "awsdns" in ns_joined:
+    if any(h.split(".")[-2].startswith("awsdns") for h in ns_hosts if h.count(".") >= 1):
         dns_provider = "AWS Route 53"
-    elif "vercel-dns" in ns_joined:
-        dns_provider = "Vercel DNS"
-    elif "googledomains" in ns_joined or "google.com" in ns_joined:
-        dns_provider = "Google Cloud DNS"
-    elif "azure-dns" in ns_joined:
-        dns_provider = "Azure DNS"
-    elif "digitalocean" in ns_joined:
-        dns_provider = "DigitalOcean DNS"
-    elif "namecheap" in ns_joined or "registrar-servers" in ns_joined:
-        dns_provider = "Namecheap DNS"
+    else:
+        for name, suffixes in NS_PROVIDERS:
+            if _matches(ns_hosts, suffixes):
+                dns_provider = name
+                break
 
-    mail_provider = "None / Self-hosted"
-    if "google.com" in mx_joined or "googlemail.com" in mx_joined:
-        mail_provider = "Google Workspace"
-    elif "outlook.com" in mx_joined or "protection.outlook.com" in mx_joined:
-        mail_provider = "Microsoft 365"
-    elif "zoho." in mx_joined:
-        mail_provider = "Zoho Mail"
-    elif "protonmail" in mx_joined or "proton.ch" in mx_joined:
-        mail_provider = "Proton Mail"
-    elif "mxroute" in mx_joined:
-        mail_provider = "MXroute"
-    elif "improvmx" in mx_joined:
-        mail_provider = "ImprovMX"
-    elif mx_records:
-        mail_provider = mx_records[0].split()[-1].rstrip(".")
+    mail_provider = "None / Self hosted"
+    for name, suffixes in MX_PROVIDERS:
+        if _matches(mx_hosts, suffixes):
+            mail_provider = name
+            break
+    else:
+        if mx_hosts:
+            mail_provider = mx_hosts[0]
 
-    has_spf = "v=spf1" in txt_joined
-    has_dmarc = any("v=dmarc1" in rec.lower() for rec in dmarc_records)
+    spf_policy = _spf_policy(txt_records)
+    dmarc_policy = _dmarc_policy(dmarc_records)
 
     return {
         "dns_provider": dns_provider if ns_records else "N/A (Direct IP)",
         "mail_provider": mail_provider if mx_records else "No MX Records",
-        "spf_configured": has_spf,
-        "dmarc_configured": has_dmarc,
+        "spf_configured": spf_policy is not None,
+        "dmarc_configured": dmarc_policy is not None,
+        "spf_policy": spf_policy,
+        "dmarc_policy": dmarc_policy,
     }
 
 
-def resolve_dns_intel(host: str, primary_ip: str, is_ip: bool) -> dict:
-    """Resolve DNS records, reverse PTR, and fingerprint cloud/mail posture."""
-    resolver = _make_resolver()
+def empty_result():
+    return {
+        "ptr": [],
+        "records": {},
+        "posture": {
+            "dns_provider": "N/A",
+            "mail_provider": "N/A",
+            "spf_configured": False,
+            "dmarc_configured": False,
+            "spf_policy": None,
+            "dmarc_policy": None,
+        },
+    }
 
-    ptr_records: list[str] = []
+
+def resolve_dns_intel(host, primary_ip, is_ip):
+    """Resolve DNS records, reverse PTR, and fingerprint cloud and mail posture."""
     try:
-        rev_name = dns.reversename.from_address(primary_ip)
-        ptr_records = [r.rstrip(".") for r in _query_records(resolver, str(rev_name), "PTR")]
+        ptr_name = str(dns.reversename.from_address(primary_ip))
     except Exception:
-        ptr_records = []
+        ptr_name = None
+
+    jobs = {}
+    if ptr_name:
+        jobs["PTR"] = (ptr_name, "PTR")
+    if not is_ip:
+        jobs.update({
+            "A": (host, "A"),
+            "AAAA": (host, "AAAA"),
+            "CNAME": (host, "CNAME"),
+            "MX": (host, "MX"),
+            "NS": (host, "NS"),
+            "TXT": (host, "TXT"),
+            "DMARC": (f"_dmarc.{host}", "TXT"),
+        })
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {key: pool.submit(_query_records, q, t) for key, (q, t) in jobs.items()}
+        answers = {key: fut.result() for key, fut in futures.items()}
+
+    ptr_records = [r.rstrip(".") for r in answers.get("PTR", [])]
 
     if is_ip:
-        return {
-            "ptr": ptr_records,
-            "records": {"A": [primary_ip] if ":" not in primary_ip else [], "AAAA": [primary_ip] if ":" in primary_ip else []},
-            "posture": {
-                "dns_provider": "N/A (Direct IP)",
-                "mail_provider": "N/A (Direct IP)",
-                "spf_configured": False,
-                "dmarc_configured": False,
-            },
+        result = empty_result()
+        result["ptr"] = ptr_records
+        result["records"] = {
+            "A": [primary_ip] if ":" not in primary_ip else [],
+            "AAAA": [primary_ip] if ":" in primary_ip else [],
         }
+        result["posture"]["dns_provider"] = "N/A (Direct IP)"
+        result["posture"]["mail_provider"] = "N/A (Direct IP)"
+        return result
 
     records = {
-        "A": _query_records(resolver, host, "A"),
-        "AAAA": _query_records(resolver, host, "AAAA"),
-        "CNAME": [r.rstrip(".") for r in _query_records(resolver, host, "CNAME")],
-        "MX": [r.rstrip(".") for r in _query_records(resolver, host, "MX")],
-        "NS": [r.rstrip(".") for r in _query_records(resolver, host, "NS")],
-        "TXT": _query_records(resolver, host, "TXT"),
+        "A": answers["A"],
+        "AAAA": answers["AAAA"],
+        "CNAME": [r.rstrip(".") for r in answers["CNAME"]],
+        "MX": [r.rstrip(".") for r in answers["MX"]],
+        "NS": [r.rstrip(".") for r in answers["NS"]],
+        "TXT": answers["TXT"],
     }
-    dmarc_records = _query_records(resolver, f"_dmarc.{host}", "TXT")
-    if dmarc_records:
-        records["DMARC"] = dmarc_records
+    if answers["DMARC"]:
+        records["DMARC"] = answers["DMARC"]
 
-    posture = _fingerprint_providers(records["NS"], records["MX"], records["TXT"], dmarc_records)
-
-    return {
-        "ptr": ptr_records,
-        "records": records,
-        "posture": posture,
-    }
+    posture = _fingerprint_providers(records["NS"], records["MX"], records["TXT"], answers["DMARC"])
+    return {"ptr": ptr_records, "records": records, "posture": posture}

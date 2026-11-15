@@ -1,9 +1,55 @@
+import logging
+import threading
+import time
+
 import requests
 
+log = logging.getLogger("netrecon.geo")
+_CACHE = {}
+_CACHE_TTL = 600.0
+_CACHE_MAX = 512
+_CACHE_LOCK = threading.Lock()
 
-def fetch_geo_intel(ip: str) -> dict:
+
+def unavailable_geo(ip):
+    return {
+        "ip": ip,
+        "ip_version": "IPv6" if ":" in ip else "IPv4",
+        "city": "Unavailable",
+        "region": "",
+        "country": "Unknown",
+        "country_code": "",
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "timezone": "UTC",
+        "asn": "N/A",
+        "org": "Lookup unavailable",
+        "isp": "Lookup unavailable",
+        "domain": "",
+        "source": "fallback",
+    }
+
+
+def fetch_geo_intel(ip):
+    """Cached geolocation lookup. Caching protects free tier quotas on the upstream providers."""
+    now = time.monotonic()
+    with _CACHE_LOCK:
+        hit = _CACHE.get(ip)
+        if hit and now - hit[0] < _CACHE_TTL:
+            return dict(hit[1])
+
+    result = _lookup(ip)
+    if result.get("source") != "fallback":
+        with _CACHE_LOCK:
+            if len(_CACHE) >= _CACHE_MAX:
+                _CACHE.clear()
+            _CACHE[ip] = (now, result)
+    return result
+
+
+def _lookup(ip):
     """Resolve IP geolocation, ASN, and ISP metadata over HTTPS with provider fallback."""
-    headers = {"User-Agent": "NetRecon/2.0 (+https://netrecon.vercel.app)"}
+    headers = {"User-Agent": "NetRecon/2.1 (+https://netrecon.vercel.app)"}
 
     try:
         resp = requests.get(f"https://ipwho.is/{ip}", headers=headers, timeout=3.0)
@@ -29,8 +75,8 @@ def fetch_geo_intel(ip: str) -> dict:
                     "domain": conn.get("domain") or "",
                     "source": "ipwho.is",
                 }
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("geo provider failed: %s", type(exc).__name__)
 
     try:
         resp = requests.get(f"https://ipapi.co/{ip}/json/", headers=headers, timeout=3.0)
@@ -53,22 +99,7 @@ def fetch_geo_intel(ip: str) -> dict:
                     "domain": "",
                     "source": "ipapi.co",
                 }
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("geo provider failed: %s", type(exc).__name__)
 
-    return {
-        "ip": ip,
-        "ip_version": "IPv6" if ":" in ip else "IPv4",
-        "city": "Unavailable",
-        "region": "",
-        "country": "Unknown",
-        "country_code": "",
-        "latitude": 0.0,
-        "longitude": 0.0,
-        "timezone": "UTC",
-        "asn": "N/A",
-        "org": "Lookup unavailable",
-        "isp": "Lookup unavailable",
-        "domain": "",
-        "source": "fallback",
-    }
+    return unavailable_geo(ip)
