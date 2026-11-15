@@ -1,67 +1,166 @@
+<div align="center">
+
 # NetRecon
 
-External attack surface and infrastructure audit workbench.
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&duration=3500&pause=1200&color=22D3EE&center=true&vCenter=true&width=720&lines=External+attack+surface+audit;DNS+%7C+TLS+%7C+Headers+%7C+ASN+%7C+Ports;SSRF-guarded+%C2%B7+ownership-gated)](https://git.io/typing-svg)
 
-SSRF guarded DNS posture, TLS certificate health, HTTP security headers, ASN geolocation, and ownership gated port exposure in one pass.
+**One-pass reconnaissance workbench for public domains and IPs.**
 
-**Live:** https://netrecon.vercel.app
+[![Live Demo](https://img.shields.io/badge/Live-netrecon.vercel.app-22d3ee?style=for-the-badge&logo=vercel&logoColor=white)](https://netrecon.vercel.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/JoeBuildsThings/NetRecon/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/JoeBuildsThings/NetRecon/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+
+<br />
+
+[Live App](https://netrecon.vercel.app) · [Privacy](https://netrecon.vercel.app/privacy) · [Report Issue](https://github.com/JoeBuildsThings/NetRecon/issues)
+
+</div>
+
+---
 
 ## What it does
 
-- Resolves public domains and IPs with strict global unicast allowlisting (blocks private, loopback, CGNAT, metadata ranges).
-- Parallel modules for geo/ASN, DNS (SPF/DMARC/NS/MX), web posture (TLS + header scoring), and optional active port probes.
-- Domain ownership verification via DNS TXT before any active TCP probing on hosted deployments.
-- Per IP rate limiting (in memory + optional Upstash Redis).
-- Clean light UI with metrics strip, tabbed findings, markdown/JSON export, and privacy policy.
+NetRecon runs a parallel, SSRF-guarded audit against a public target and returns:
+
+| Module | Output |
+|--------|--------|
+| **DNS** | A/AAAA, MX, NS, TXT, PTR · SPF / DMARC posture |
+| **Web** | TLS availability & verification · security header scoring · grade |
+| **Geo / ASN** | City, country, org, ASN from public IP intel |
+| **Ports** | Common-port probe **only after** DNS TXT ownership proof |
+
+Active TCP probing is ownership-gated on production. Private, loopback, CGNAT, and metadata ranges are rejected at validation time.
+
+---
 
 ## Stack
 
-- Flask + Vercel Python runtime
-- dnspython, requests
-- Optional Upstash Redis for distributed rate limits
-- Static UI: Space Grotesk / Plus Jakarta Sans / JetBrains Mono, D3 orthographic globe (graceful fallback)
+```text
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Browser UI │────▶│  Flask / Vercel  │────▶│  recon modules  │
+│  static JS  │◀────│  rate limit +    │◀────│  dns · geo ·    │
+│  dark SOC   │     │  security hdrs   │     │  web · ports    │
+└─────────────┘     └──────────────────┘     └─────────────────┘
+```
+
+- **Backend:** Flask, concurrent modules (`ThreadPoolExecutor`), ProxyFix
+- **Intel:** dnspython, requests, public DNS + IP geolocation APIs
+- **Optional:** Upstash Redis REST for distributed rate limits
+- **Frontend:** Space Grotesk · Plus Jakarta Sans · JetBrains Mono
+
+---
 
 ## Quick start
 
 ```bash
+git clone https://github.com/JoeBuildsThings/NetRecon.git
+cd NetRecon
+
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
+
 python app.py
 ```
 
-Open http://127.0.0.1:5000
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+### API sketch
+
+```bash
+# Health
+curl -s https://netrecon.vercel.app/api/health | jq
+
+# Recon (POST JSON)
+curl -s -X POST https://netrecon.vercel.app/api/recon \
+  -H 'Content-Type: application/json' \
+  -d '{"target":"github.com","include_ports":true}' | jq
+```
+
+```python
+# Response shape (simplified)
+{
+  "ok": True,
+  "elapsed_ms": 1234.5,
+  "partial": False,
+  "target": {"host": "github.com", "primary_ip": "...", "is_ip": False},
+  "ownership": {"verified": False, "txt_host": "...", "txt_value": "..."},
+  "geo": {"asn": "...", "org": "...", "country": "..."},
+  "dns": {"posture": {"spf_status": "...", "dmarc_policy": "..."}},
+  "web": {"grade": "A", "score": 92, "tls": {"available": True}},
+  "ports": {"status": "verification_required", "open_ports": []}
+}
+```
+
+---
 
 ## Security posture
 
-- Input validation and SSRF guards in `recon/validator.py`
-- No private/internal targets accepted
-- Port scans require ownership proof on production
-- Security headers (HSTS, CSP, X-Frame-Options, etc.)
-- Rate limit 25 requests / 60s per client IP
-- No persistent user database of scan results
+| Control | Detail |
+|---------|--------|
+| **SSRF guards** | Global-unicast allowlist only — no RFC1918, loopback, link-local, CGNAT, metadata |
+| **Ownership gate** | TXT challenge before active port scans in production |
+| **Rate limit** | 25 req / 60s per client IP (in-memory + optional Upstash) |
+| **Headers** | HSTS, CSP, `X-Frame-Options: DENY`, Referrer-Policy, Permissions-Policy |
+| **Data** | No persistent user scan DB — history stays in browser `localStorage` |
 
-## Tests
+---
+
+## Tests & CI
 
 ```bash
 pytest tests/ -v
+ruff check .
 ```
 
-CI runs on every push to main (ruff + pytest).
+GitHub Actions runs **ruff + pytest** on every push to `main` (Python 3.11 / 3.12).
+
+---
 
 ## Environment (optional)
 
 | Variable | Purpose |
-|---|---|
-| `UPSTASH_REDIS_REST_URL` | Distributed rate limit store |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash token |
+|----------|---------|
+| `UPSTASH_REDIS_REST_URL` | Distributed rate-limit store |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST token |
 
-Free tier only. No paid services required for core operation.
+Core operation stays on free tiers — no paid services required.
+
+---
+
+## Project layout
+
+```text
+NetRecon/
+├── app.py                 # Flask entry + /api/recon
+├── recon/
+│   ├── validator.py       # Target normalize + SSRF blocklist
+│   ├── dns_intel.py
+│   ├── geo_intel.py
+│   ├── web_audit.py
+│   ├── ownership.py
+│   ├── port_scanner.py
+│   └── logger.py
+├── static/
+│   ├── styles.css
+│   └── app.js
+├── templates/
+│   ├── index.html
+│   ├── privacy.html
+│   └── 404.html
+├── tests/
+│   └── test_security.py
+└── .github/workflows/ci.yml
+```
+
+---
 
 ## License
 
-MIT. See LICENSE.
+[MIT](LICENSE) © Adebiyi Joseph Ayomide / JoeBuildsThings
 
-Authorized security testing and infrastructure verification only.
-Use only on systems you own or have explicit permission to audit.
+> **Authorized testing only.** Use NetRecon only on systems you own or have explicit permission to audit.
