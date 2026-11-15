@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#F7F8FA" />
+  <title>Privacy Policy | NetRecon</title>
+  <meta name="description" content="Project specific privacy policy detailing telemetry handling, third party processors, retention, and user rights for NetRecon." />
+  <link rel="canonical" href="https://netrecon.vercel.app/privacy" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F172A'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%230284C7' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%2310B981'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="nav">
+      <a href="/" class="brand">
+        <span class="brand-name">NetRecon</span>
+        <span class="version-tag">v{{ version }}</span>
+      </a>
+      <a href="/" class="btn-secondary">Back to Workbench</a>
+    </header>
+
+    <main class="legal-doc">
+      <h1>Privacy Policy</h1>
+      <p class="legal-meta mono">Effective Date: November 15, 2026 | Service: netrecon.vercel.app</p>
+
+      <section class="legal-section">
+        <h2>1. Data We Process and Purpose</h2>
+        <p>
+          NetRecon performs on demand network reconnaissance against public domains and IP addresses submitted by users.
+          When you submit a target, the application processes the target string, resolved public IP addresses, and your requester IP address solely to execute security checks and enforce per IP rate limits.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2>2. Third Party Subprocessors and Network Requests</h2>
+        <p>Executing a scan or loading the web interface transmits limited network metadata to the following external services:</p>
+        <ul>
+          <li><strong>Vercel (Hosting and Edge Logs):</strong> Receives your HTTP request metadata, including IP address and User Agent, to route requests and serve static assets.</li>
+          <li><strong>ipwho.is and ipapi.co (IP Geolocation and ASN Lookup):</strong> Receive the resolved public IP address of the scanned target to return city, country, coordinates, and ASN ownership data. Your visitor IP is not sent to these providers.</li>
+          <li><strong>Cloudflare (1.1.1.1) and Google Public DNS (8.8.8.8):</strong> Receive DNS queries for the scanned domain name to resolve A, AAAA, CNAME, MX, NS, TXT, PTR, and DMARC records.</li>
+          <li><strong>jsDelivr CDN and Google Fonts:</strong> Receive standard browser asset requests (visitor IP and browser headers) when loading D3, TopoJSON, world atlas map geometry, and web fonts.</li>
+          <li><strong>Upstash Redis (Optional Rate Limiting Store):</strong> When enabled in production, stores hashed or bucketed requester IP counters with a 65 second expiration TTL to prevent abuse.</li>
+        </ul>
+      </section>
+
+      <section class="legal-section">
+        <h2>3. Retention and Client Storage</h2>
+        <p>
+          NetRecon does not maintain a persistent user database of scan reports. In memory geolocation caches expire automatically after 15 minutes, and rate limit counters expire after 60 seconds. Recent scan history shown in the interface is stored exclusively in your browser localStorage and can be cleared at any time.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2>4. Cookies and Minors</h2>
+        <p>
+          NetRecon sets zero tracking or advertising cookies. This security auditing utility is intended for network administrators, developers, and security learners aged 16 and older.
+        </p>
+      </section>
+
+      <section class="legal-section">
+        <h2>5. Security and Contact</h2>
+        <p>
+          All outbound target connections enforce strict global unicast IP allowlists to prevent Server Side Request Forgery against private or internal networks. For privacy or security inquiries, open an issue on <a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">github.com/JoeBuildsThings/NetRecon</a> or contact <span class="mono">joethewebdev01@gmail.com</span>.
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
