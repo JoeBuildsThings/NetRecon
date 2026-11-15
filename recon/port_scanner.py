@@ -1,7 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
 import socket
 import ssl
 import time
+from recon.logger import get_logger, log_event
+
+logger = get_logger("netrecon.ports")
 
 COMMON_PORTS: list[tuple[int, str, str, str]] = [
     (21, "FTP", "warn", "Cleartext file transfer"),
@@ -12,24 +16,43 @@ COMMON_PORTS: list[tuple[int, str, str, str]] = [
     (80, "HTTP", "info", "Cleartext web service"),
     (110, "POP3", "warn", "Cleartext mail retrieval"),
     (143, "IMAP", "warn", "Cleartext mail access"),
-    (443, "HTTPS", "info", "TLS-encrypted web service"),
+    (443, "HTTPS", "info", "TLS encrypted web service"),
     (445, "SMB", "high", "Windows file sharing exposed"),
     (465, "SMTPS", "info", "TLS mail submission"),
     (587, "Submission", "info", "Authenticated mail relay"),
-    (993, "IMAPS", "info", "TLS-encrypted IMAP"),
-    (995, "POP3S", "info", "TLS-encrypted POP3"),
+    (993, "IMAPS", "info", "TLS encrypted IMAP"),
+    (995, "POP3S", "info", "TLS encrypted POP3"),
     (1433, "MSSQL", "high", "Database port publicly reachable"),
     (3306, "MySQL", "high", "Database port publicly reachable"),
     (3389, "RDP", "high", "Remote desktop exposed"),
     (5432, "PostgreSQL", "high", "Database port publicly reachable"),
-    (6379, "Redis", "high", "In-memory datastore exposed"),
-    (8080, "HTTP-Alt", "info", "Alternate web / proxy port"),
-    (8443, "HTTPS-Alt", "info", "Alternate TLS web port"),
+    (6379, "Redis", "high", "In memory datastore exposed"),
+    (8080, "HTTP Alt", "info", "Alternate web or proxy port"),
+    (8443, "HTTPS Alt", "info", "Alternate TLS web port"),
     (27017, "MongoDB", "high", "NoSQL database exposed"),
 ]
 
+CDN_KEYWORDS: dict[str, str] = {
+    "cloudflare": "Cloudflare Edge",
+    "vercel": "Vercel Edge Network",
+    "fastly": "Fastly CDN",
+    "akamai": "Akamai Edge",
+    "cloudfront": "AWS CloudFront",
+    "amazon": "AWS Edge / EC2",
+    "google": "Google Cloud / Edge",
+    "netlify": "Netlify Edge",
+}
 
-def _sanitize_banner(raw: bytes) -> str:
+
+def detect_edge_network(org: str, dns_provider: str = "") -> tuple[bool, str]:
+    combined = f"{org} {dns_provider}".lower()
+    for key, label in CDN_KEYWORDS.items():
+        if key in combined:
+            return True, label
+    return False, ""
+
+
+def sanitize_banner(raw: bytes) -> str:
     text = raw.decode("utf-8", errors="ignore")
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     if not lines:
@@ -45,23 +68,24 @@ def _grab_banner(sock: socket.socket, port: int, host: str) -> str:
     sock.settimeout(0.6)
     try:
         if port in (80, 8080):
-            req = f"HEAD / HTTP/1.0\r\nHost: {host}\r\nUser-Agent: NetRecon/2.0\r\n\r\n".encode()
+            req = f"HEAD / HTTP/1.0\r\nHost: {host}\r\nUser-Agent: NetRecon/2.1\r\n\r\n".encode()
             sock.sendall(req)
-            return _sanitize_banner(sock.recv(512))
+            return sanitize_banner(sock.recv(512))
         if port in (443, 8443):
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             with ctx.wrap_socket(sock, server_hostname=host) as tls_sock:
                 tls_sock.settimeout(0.6)
-                req = f"HEAD / HTTP/1.0\r\nHost: {host}\r\nUser-Agent: NetRecon/2.0\r\n\r\n".encode()
+                req = f"HEAD / HTTP/1.0\r\nHost: {host}\r\nUser-Agent: NetRecon/2.1\r\n\r\n".encode()
                 tls_sock.sendall(req)
-                banner = _sanitize_banner(tls_sock.recv(512))
+                banner = sanitize_banner(tls_sock.recv(512))
                 proto = tls_sock.version() or "TLS"
-                return f"{proto} · {banner}" if banner else proto
+                return f"{proto} | {banner}" if banner else proto
         if port in (21, 22, 23, 25, 110, 143, 587):
-            return _sanitize_banner(sock.recv(256))
-    except Exception:
+            return sanitize_banner(sock.recv(256))
+    except Exception as exc:
+        log_event(logger, logging.DEBUG, "banner_grab_skipped", port=port, error_type=type(exc).__name__)
         return ""
     return ""
 
@@ -86,7 +110,8 @@ def _probe_single_port(ip: str, host: str, port_meta: tuple[int, str, str, str])
             "latency_ms": latency_ms,
             "banner": banner,
         }
-    except Exception:
+    except Exception as exc:
+        log_event(logger, logging.DEBUG, "port_probe_error", port=port, error_type=type(exc).__name__)
         return None
     finally:
         try:
@@ -95,8 +120,8 @@ def _probe_single_port(ip: str, host: str, port_meta: tuple[int, str, str, str])
             pass
 
 
-def scan_common_ports(ip: str, host: str) -> dict:
-    """Concurrently probe high-signal TCP ports and grab non-intrusive service banners."""
+def scan_common_ports(ip: str, host: str, org: str = "", dns_provider: str = "") -> dict:
+    """Concurrently probe high signal TCP ports on the pinned IP and label CDN edge attribution."""
     t_start = time.perf_counter()
     open_ports: list[dict] = []
 
@@ -109,8 +134,13 @@ def scan_common_ports(ip: str, host: str) -> dict:
 
     open_ports.sort(key=lambda item: item["port"])
     elapsed_ms = round((time.perf_counter() - t_start) * 1000, 1)
+    edge_cdn, edge_provider = detect_edge_network(org, dns_provider)
 
     return {
+        "status": "completed",
+        "scanned_ip": ip,
+        "edge_cdn": edge_cdn,
+        "edge_provider": edge_provider,
         "scanned_count": len(COMMON_PORTS),
         "open_count": len(open_ports),
         "scan_ms": elapsed_ms,
