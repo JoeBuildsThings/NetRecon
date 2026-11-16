@@ -1,221 +1,232 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#090d0b" />
-  <title>NetRecon | External Reconnaissance Workbench</title>
-  <meta name="description" content="A focused external attack-surface workbench for DNS posture, TLS health, HTTP headers, ASN context, and ownership-verified port exposure." />
-  <link rel="canonical" href="https://netrecon.vercel.app/" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23090d0b'/%3E%3Cpath d='M6 16h20M16 6v20' stroke='%23b9f27c' stroke-width='1.5' opacity='.6'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23b9f27c' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23b9f27c'/%3E%3C/svg%3E" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0e0b">
+  <title>NetRecon | Surface Intelligence</title>
+  <meta name="description" content="A focused external surface intelligence workbench for DNS, TLS, HTTP posture, IP geolocation and scoped TCP exposure checks.">
+  <link rel="canonical" href="https://netrecon.vercel.app/">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230a0e0b'/%3E%3Ccircle cx='20' cy='20' r='12' fill='none' stroke='%23b7f477' stroke-width='2'/%3E%3Cpath d='M8 20h24M20 8v24M12 12l16 16M28 12 12 28' stroke='%23b7f477' stroke-width='1' opacity='.7'/%3E%3Ccircle cx='20' cy='20' r='3' fill='%23b7f477'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="/static/app.js" defer></script>
 </head>
 <body>
-  <div class="page">
+  <div class="app-shell">
     <header class="topbar">
-      <a href="/" class="brand" aria-label="NetRecon home">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 28 28" fill="none" role="img">
-            <circle cx="14" cy="14" r="10" />
-            <path d="M4 14h20M14 4a15 15 0 0 1 0 20M14 4a15 15 0 0 0 0 20" />
-            <circle class="brand-core" cx="14" cy="14" r="2.3" />
+      <a class="brand" href="/" aria-label="NetRecon home">
+        <span class="brand-symbol" aria-hidden="true">
+          <svg viewBox="0 0 36 36" fill="none">
+            <circle cx="18" cy="18" r="12.5"></circle>
+            <path d="M5.5 18h25M18 5.5a19 19 0 0 1 0 25M18 5.5a19 19 0 0 0 0 25"></path>
+            <circle cx="18" cy="18" r="3"></circle>
           </svg>
         </span>
-        <span class="brand-word">NET<span>RECON</span></span>
-        <span class="version-tag">v{{ version }}</span>
+        <span class="brand-name">NETRECON<span class="brand-version">v{{ version }}</span></span>
       </a>
 
       <div class="topbar-right">
-        <span class="system-label">EXTERNAL INTELLIGENCE / FIELD KIT</span>
+        <span class="product-label">EXTERNAL SURFACE INTELLIGENCE</span>
         <nav class="top-links" aria-label="Main navigation">
-          <a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">Source</a>
           <a href="/privacy">Privacy</a>
         </nav>
-        <div class="status-pill" id="statusPill" role="status" aria-live="polite">
-          <span class="status-dot" id="statusDot"></span>
-          <span id="statusText">Checking API</span>
-        </div>
+        <span class="api-indicator" id="apiIndicator" role="status" aria-live="polite">
+          <span class="api-dot" aria-hidden="true"></span>
+          <span id="apiStatus">Checking API</span>
+        </span>
       </div>
     </header>
 
-    <main class="workspace">
-      <section class="hero" aria-labelledby="heroTitle">
-        <div class="hero-main">
-          <div class="eyebrow"><span class="eyebrow-mark"></span><span>EXTERNAL RECONNAISSANCE</span><span class="eyebrow-divider">/</span><span>WORKSPACE 01</span></div>
-          <h1 class="hero-title" id="heroTitle">Map the surface.<br /><span>Verify what matters.</span></h1>
-          <p class="hero-sub">A clear read on public-facing infrastructure. Inspect DNS posture, TLS, HTTP security headers and network ownership context from one controlled audit.</p>
-
-          <form id="reconForm" class="command-shell" autocomplete="off">
-            <label for="targetInput" class="sr-only">Target domain, URL, or public IP</label>
-            <div class="command-input-wrap">
-              <span class="prompt-prefix" aria-hidden="true"><span>nr</span><b>&gt;</b></span>
-              <input
-                id="targetInput"
-                name="target"
-                type="text"
-                placeholder="Enter a domain, URL or public IP"
-                spellcheck="false"
-                autocapitalize="off"
-                autocomplete="off"
-                autocorrect="off"
-                required
-                aria-describedby="commandHint"
-              />
-            </div>
-            <button type="submit" class="btn-primary" id="scanBtn">
-              <span id="scanBtnText">Start audit</span>
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.5 10h12m-5-5 5 5-5 5" /></svg>
-            </button>
-          </form>
-          <p class="command-hint" id="commandHint"><span class="hint-lock" aria-hidden="true">[i]</span> Public targets only. Active port checks require a verified DNS TXT ownership record.</p>
-
-          <div class="control-row">
-            <div class="preset-group" aria-label="Example targets">
-              <span class="micro-label">QUICK TARGETS</span>
-              <button type="button" class="chip-btn" data-preset="github.com">github.com</button>
-              <button type="button" class="chip-btn" data-preset="cloudflare.com">cloudflare.com</button>
-              <button type="button" class="chip-btn" data-preset="1.1.1.1">1.1.1.1</button>
-            </div>
-            <label class="toggle-check" for="activePortsToggle">
-              <input type="checkbox" id="activePortsToggle" checked />
-              <span class="toggle-ui" aria-hidden="true"></span>
-              <span>Include TCP port check</span>
-            </label>
-          </div>
-
-          <div class="alert-banner" id="errorBox" role="alert" aria-live="assertive"></div>
-
-          <div class="recent-wrap">
-            <span class="micro-label recent-label">RECENT TARGETS</span>
-            <div class="recent-strip" id="recentBar" aria-label="Recent targets"></div>
-          </div>
+    <main class="main-content">
+      <section class="hero-section" aria-labelledby="pageTitle">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-line"></span> NETWORK INTELLIGENCE / FIELD WORKBENCH</p>
+          <h1 id="pageTitle">See the edge.<br><span>Understand the exposure.</span></h1>
+          <p class="hero-description">A focused read on public-facing infrastructure. Resolve network identity, inspect DNS and web posture, and review exposed services from one clear workspace.</p>
         </div>
 
-        <aside class="side-card" aria-label="Current scan profile">
-          <div class="side-card-head">
-            <div>
-              <p class="panel-kicker">RUN PROFILE</p>
-              <h2>Operation context</h2>
-            </div>
-            <span class="profile-index">NR / 01</span>
-          </div>
-          <div class="profile-status">
-            <span class="profile-status-mark" aria-hidden="true"><span></span></span>
-            <div><span class="profile-status-title">Audit session</span><span class="profile-status-copy">Controlled probe sequence</span></div>
-          </div>
-          <div class="side-grid">
-            <div class="side-row"><span class="side-k">Mode</span><span class="side-v" id="sideMode">Active ports on</span></div>
-            <div class="side-row"><span class="side-k">Elapsed</span><span class="side-v mono" id="sideElapsed">N/A</span></div>
-            <div class="side-row"><span class="side-k">Partial modules</span><span class="side-v mono" id="sidePartial">N/A</span></div>
-            <div class="side-row"><span class="side-k">Ownership</span><span class="side-v mono" id="sideOwn">N/A</span></div>
-            <div class="side-row"><span class="side-k">Engine</span><span class="side-v mono">netrecon v{{ version }}</span></div>
-          </div>
-          <p class="ownership-note"><span aria-hidden="true">!</span> Port probing stays locked until domain ownership is verified. Passive checks remain available.</p>
-        </aside>
-      </section>
-
-      <section class="metrics-section" aria-label="Latest scan summary">
-        <div class="section-caption"><span class="micro-label">SIGNAL SNAPSHOT</span><span class="caption-line"></span><span class="caption-state">4 DATA POINTS</span></div>
-        <div class="metrics-strip">
-          <article class="metric-card">
-            <div class="metric-head"><span class="metric-k">RESOLVED HOST</span><span class="metric-index">01</span></div>
-            <div class="metric-v mono" id="metricIp">Awaiting target</div>
-            <div class="metric-s mono" id="metricHost">IPv4 / IPv6</div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-head"><span class="metric-k">ASN &amp; LOCATION</span><span class="metric-index">02</span></div>
-            <div class="metric-v mono" id="metricGeo">Unassigned</div>
-            <div class="metric-s mono" id="metricOrg">Network owner</div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-head"><span class="metric-k">WEB POSTURE</span><span class="metric-index">03</span></div>
-            <div class="metric-v mono" id="metricGrade">N/A</div>
-            <div class="metric-s mono" id="metricTls">TLS + headers</div>
-          </article>
-          <article class="metric-card">
-            <div class="metric-head"><span class="metric-k">PORT EXPOSURE</span><span class="metric-index">04</span></div>
-            <div class="metric-v mono" id="metricPorts">0 open</div>
-            <div class="metric-s mono" id="metricLatency">Ownership gated</div>
-          </article>
-        </div>
-      </section>
-
-      <section class="workbench" id="workbench" aria-label="Reconnaissance findings" aria-busy="false">
-        <div class="workbench-heading">
+        <div class="run-state" id="runState" data-state="idle">
+          <span class="run-state-light" aria-hidden="true"></span>
           <div>
-            <p class="panel-kicker">ANALYSIS / 02</p>
-            <h2>Inspection output</h2>
+            <span class="run-state-label" id="statusLabel">Idle</span>
+            <span class="run-state-detail" id="statusDetail">Ready for a target</span>
           </div>
-          <div class="target-context" id="targetContext"><span class="context-dot"></span> NO TARGET SELECTED</div>
-        </div>
-        <div class="workbench-bar">
-          <div class="tabs" role="tablist" aria-label="Inspection modules">
-            <button type="button" class="tab-btn active" id="tab-web" role="tab" aria-selected="true" aria-controls="panel-web" tabindex="0" data-tab="web"><span>01</span> TLS &amp; Headers</button>
-            <button type="button" class="tab-btn" id="tab-dns" role="tab" aria-selected="false" aria-controls="panel-dns" tabindex="-1" data-tab="dns"><span>02</span> DNS</button>
-            <button type="button" class="tab-btn" id="tab-ports" role="tab" aria-selected="false" aria-controls="panel-ports" tabindex="-1" data-tab="ports"><span>03</span> Ports</button>
-            <button type="button" class="tab-btn" id="tab-raw" role="tab" aria-selected="false" aria-controls="panel-raw" tabindex="-1" data-tab="raw"><span>04</span> Raw JSON</button>
-          </div>
-          <div class="export-row">
-            <button type="button" class="mini-btn" id="copyMdBtn" disabled>Copy report</button>
-            <button type="button" class="mini-btn mini-btn-strong" id="exportJsonBtn" disabled>Export JSON <span aria-hidden="true">↓</span></button>
-          </div>
+          <span class="run-state-code" id="statusCode">NR / 00</span>
         </div>
 
-        <div class="panel active" id="panel-web" role="tabpanel" aria-labelledby="tab-web" tabindex="0">
-          <div class="panel-intro"><div><span class="module-tag">MODULE 01</span><h3>Web security posture</h3></div><span class="module-description">TLS certificate validation and HTTP response controls</span></div>
-          <div class="empty-state" id="webEmpty"><span class="empty-glyph" aria-hidden="true">[ _ ]</span><strong>Awaiting inspection data</strong><span>Run an audit to populate certificate and header findings.</span></div>
-          <div id="webBox" hidden>
-            <div class="score-row">
-              <div class="score-copy"><span class="micro-label">POSTURE SCORE</span><div class="score-grade mono" id="scoreGrade">N/A</div></div>
-              <div class="score-track"><div class="score-fill" id="scoreFill"></div></div>
-              <span class="mono score-label" id="scoreLabel">0/100</span>
+        <form class="target-form" id="reconForm" autocomplete="off" novalidate>
+          <div class="target-field">
+            <label for="targetInput">Target</label>
+            <div class="target-input-row">
+              <span class="input-prefix" aria-hidden="true">nr<span>:</span></span>
+              <input id="targetInput" name="target" type="text" placeholder="example.com or 203.0.113.10" maxlength="255" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" required aria-describedby="targetHelp">
+              <button class="scan-button" id="scanBtn" type="submit">
+                <span id="scanBtnText">Run scan</span>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.5 10h12m-5-5 5 5-5 5"></path></svg>
+              </button>
             </div>
-            <div class="kv-grid" id="tlsGrid"></div>
-            <div class="subsection-heading"><h4>Security headers</h4><span class="micro-label">RESPONSE CONTROLS</span></div>
-            <ul class="header-list" id="headerList"></ul>
+          </div>
+        </form>
+        <div class="target-foot">
+          <p id="targetHelp">Passive DNS and IP intelligence run for every valid public target. TCP probes start automatically only for targets in the operator-configured scan scope.</p>
+          <div class="recent-targets" id="recentTargets" aria-label="Recent targets"></div>
+        </div>
+
+        <div class="alert-banner" id="errorBox" role="alert" aria-live="assertive" hidden></div>
+      </section>
+
+      <section class="summary-section" aria-labelledby="summaryTitle">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">LATEST RESULT</p>
+            <h2 id="summaryTitle">Target overview</h2>
+          </div>
+          <span class="section-caption" id="resultTarget">NO TARGET SELECTED</span>
+        </div>
+
+        <div class="summary-grid" id="summaryGrid" aria-live="polite">
+          <article class="summary-card">
+            <span class="summary-label">TARGET IP</span>
+            <strong class="summary-value summary-value-muted" id="metricIp">Awaiting scan</strong>
+            <span class="summary-note" id="metricHost">Resolved address</span>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">OPEN PORTS</span>
+            <strong class="summary-value" id="metricPorts">—</strong>
+            <span class="summary-note" id="metricPortNote">No probe data yet</span>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">WEB POSTURE</span>
+            <strong class="summary-value" id="metricGrade">—</strong>
+            <span class="summary-note" id="metricScore">TLS and response controls</span>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">LAST SCAN</span>
+            <strong class="summary-value summary-time" id="metricTime">Not run</strong>
+            <span class="summary-note" id="metricDuration">Elapsed time unavailable</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="signal-grid" aria-label="Risk and hosting location">
+        <article class="panel risk-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">SIGNAL REVIEW / 01</p>
+              <h2>Risk highlights</h2>
+            </div>
+            <span class="panel-index">FINDINGS</span>
+          </div>
+          <div class="risk-list" id="riskList">
+            <div class="empty-inline">
+              <span class="empty-mark" aria-hidden="true">—</span>
+              <div><strong>No findings yet</strong><p>Run a scan to see high-signal observations.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel map-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">NETWORK CONTEXT / 02</p>
+              <h2>Hosting location</h2>
+            </div>
+            <span class="approx-badge">APPROXIMATE</span>
+          </div>
+          <div class="map-frame">
+            <div id="geoMap" role="application" aria-label="Interactive map showing the approximate IP geolocation of the scanned target"></div>
+            <div class="map-empty" id="mapEmpty">
+              <span class="map-crosshair" aria-hidden="true">+</span>
+              <strong>Location not plotted</strong>
+              <span>A successful IP geolocation lookup is needed.</span>
+            </div>
+          </div>
+          <div class="geo-details">
+            <div class="geo-place">
+              <strong id="geoPlace">Awaiting location data</strong>
+              <span id="geoNetwork">Network owner unavailable</span>
+            </div>
+            <div class="geo-meta">
+              <span>Source <strong id="geoSource">—</strong></span>
+              <span>Lookup <strong id="geoTimestamp">—</strong></span>
+            </div>
+          </div>
+          <p class="map-disclaimer">IP geolocation is approximate and may identify a provider or network hub, not the target’s physical address.</p>
+        </article>
+      </section>
+
+      <section class="panel findings-panel" aria-labelledby="findingsTitle" aria-busy="false" id="workbench">
+        <div class="panel-heading findings-heading">
+          <div>
+            <p class="section-kicker">INSPECTION OUTPUT / 03</p>
+            <h2 id="findingsTitle">Technical findings</h2>
+          </div>
+          <div class="export-actions">
+            <button class="quiet-button" type="button" id="copyReportBtn" disabled>Copy summary</button>
+            <button class="quiet-button quiet-button-strong" type="button" id="exportJsonBtn" disabled>Export JSON <span aria-hidden="true">↓</span></button>
           </div>
         </div>
 
-        <div class="panel" id="panel-dns" role="tabpanel" aria-labelledby="tab-dns" tabindex="0" hidden>
-          <div class="panel-intro"><div><span class="module-tag">MODULE 02</span><h3>DNS intelligence</h3></div><span class="module-description">Records, mail posture and provider signals</span></div>
-          <div class="empty-state" id="dnsEmpty"><span class="empty-glyph" aria-hidden="true">[ _ ]</span><strong>No DNS snapshot yet</strong><span>DNS posture appears after a successful scan.</span></div>
+        <div class="tabs" role="tablist" aria-label="Finding categories">
+          <button type="button" class="tab-button is-active" id="tab-overview" role="tab" aria-selected="true" aria-controls="panel-overview" tabindex="0" data-tab="overview">Overview</button>
+          <button type="button" class="tab-button" id="tab-web" role="tab" aria-selected="false" aria-controls="panel-web" tabindex="-1" data-tab="web">Web posture</button>
+          <button type="button" class="tab-button" id="tab-dns" role="tab" aria-selected="false" aria-controls="panel-dns" tabindex="-1" data-tab="dns">DNS</button>
+          <button type="button" class="tab-button" id="tab-ports" role="tab" aria-selected="false" aria-controls="panel-ports" tabindex="-1" data-tab="ports">TCP ports</button>
+          <button type="button" class="tab-button" id="tab-raw" role="tab" aria-selected="false" aria-controls="panel-raw" tabindex="-1" data-tab="raw">Raw JSON</button>
+        </div>
+
+        <div class="tab-panel is-active" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
+          <div class="empty-state" id="overviewEmpty"><strong>Waiting for a scan</strong><span>Target identity and module status will appear here.</span></div>
+          <div class="key-value-grid" id="overviewGrid" hidden></div>
+        </div>
+
+        <div class="tab-panel" id="panel-web" role="tabpanel" aria-labelledby="tab-web" tabindex="0" hidden>
+          <div class="empty-state" id="webEmpty"><strong>No web posture data</strong><span>Run a scan to inspect TLS and HTTP response controls.</span></div>
+          <div id="webBox" hidden>
+            <div class="posture-score">
+              <div><span class="summary-label">POSTURE SCORE</span><strong id="scoreValue">—</strong></div>
+              <div class="score-track"><span id="scoreFill"></span></div>
+              <span class="score-grade" id="scoreGrade">N/A</span>
+            </div>
+            <div class="key-value-grid" id="tlsGrid"></div>
+            <div class="subheading"><h3>HTTP security headers</h3><span>RESPONSE CONTROLS</span></div>
+            <ul class="finding-list" id="headerList"></ul>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-dns" role="tabpanel" aria-labelledby="tab-dns" tabindex="0" hidden>
+          <div class="empty-state" id="dnsEmpty"><strong>No DNS data</strong><span>Record and mail posture results will appear here.</span></div>
           <div id="dnsBox" hidden>
-            <div class="kv-grid" id="dnsSummary"></div>
-            <div class="subsection-heading"><h4>Resolved records</h4><span class="micro-label">DNS ANSWERS</span></div>
+            <div class="key-value-grid" id="dnsSummary"></div>
+            <div class="subheading"><h3>Resolved records</h3><span>DNS ANSWERS</span></div>
             <div id="dnsRecords"></div>
           </div>
         </div>
 
-        <div class="panel" id="panel-ports" role="tabpanel" aria-labelledby="tab-ports" tabindex="0" hidden>
-          <div class="panel-intro"><div><span class="module-tag">MODULE 03</span><h3>TCP exposure</h3></div><span class="module-description">Common service ports with ownership gating</span></div>
-          <div class="own-banner" id="ownBanner">
-            <div class="own-banner-mark" aria-hidden="true">!</div>
-            <div><h3>Ownership verification required</h3><p id="ownReason">Publish the TXT record below, then re-run the audit with ports enabled.</p><code id="ownTxt"></code></div>
-          </div>
-          <div class="empty-state" id="portsEmpty"><span class="empty-glyph" aria-hidden="true">[ _ ]</span><strong>Port data not available</strong><span>Port results appear when an audit completes.</span></div>
-          <div id="portsBox" hidden>
-            <div class="table-wrap"><table class="data-table">
-              <thead><tr><th>PORT</th><th>SERVICE</th><th>LATENCY</th><th>STATE</th></tr></thead>
+        <div class="tab-panel" id="panel-ports" role="tabpanel" aria-labelledby="tab-ports" tabindex="0" hidden>
+          <div class="port-summary" id="portSummary"></div>
+          <div class="empty-state" id="portsEmpty"><strong>No port results</strong><span>TCP findings appear after an eligible active probe.</span></div>
+          <div class="table-wrap" id="portsTableWrap" hidden>
+            <table class="data-table">
+              <thead><tr><th scope="col">PORT</th><th scope="col">SERVICE</th><th scope="col">LATENCY</th><th scope="col">ASSESSMENT</th><th scope="col">STATE</th></tr></thead>
               <tbody id="portsBody"></tbody>
-            </table></div>
+            </table>
           </div>
         </div>
 
-        <div class="panel" id="panel-raw" role="tabpanel" aria-labelledby="tab-raw" tabindex="0" hidden>
-          <div class="panel-intro"><div><span class="module-tag">MODULE 04</span><h3>Raw response</h3></div><span class="module-description">Machine-readable audit payload</span></div>
-          <pre class="raw-box" id="rawBox">{}</pre>
+        <div class="tab-panel" id="panel-raw" role="tabpanel" aria-labelledby="tab-raw" tabindex="0" hidden>
+          <pre class="raw-response" id="rawBox">{}</pre>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <span><span class="footer-mark"></span> AUTHORIZED TESTING ONLY <span class="footer-sep">/</span> SSRF GUARDED <span class="footer-sep">/</span> RATE LIMITED</span>
-      <span>NETRECON <span class="footer-sep">·</span> <a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">SOURCE</a> <span class="footer-sep">·</span> <a href="/privacy">PRIVACY</a></span>
+      <span><span class="footer-led" aria-hidden="true"></span> NETRECON <span class="footer-divider">/</span> PASSIVE INTELLIGENCE <span class="footer-divider">/</span> SCOPED ACTIVE PROBING</span>
+      <span><a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">SOURCE</a><span class="footer-divider">·</span><a href="/privacy">PRIVACY</a></span>
     </footer>
   </div>
-  <script src="/static/app.js" defer></script>
 </body>
 </html>
