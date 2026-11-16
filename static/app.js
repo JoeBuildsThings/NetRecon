@@ -392,9 +392,11 @@
   function renderMap(geo, scannedAt) {
     const empty = $("#mapEmpty");
     const source = String(geo && geo.source ? geo.source : "").toLowerCase();
-    const lat = Number(geo && geo.latitude);
-    const lon = Number(geo && geo.longitude);
-    const validCoords = Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180 && !(lat === 0 && lon === 0);
+    const hasLatitude = geo && geo.latitude !== null && geo.latitude !== undefined && geo.latitude !== "";
+    const hasLongitude = geo && geo.longitude !== null && geo.longitude !== undefined && geo.longitude !== "";
+    const lat = hasLatitude ? Number(geo.latitude) : Number.NaN;
+    const lon = hasLongitude ? Number(geo.longitude) : Number.NaN;
+    const validCoords = Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
     const validSource = source !== "" && source !== "fallback" && source !== "unavailable" && source !== "timeout";
     const place = [geo && geo.city, geo && geo.region, geo && geo.country].filter((value) => value && value !== "Unknown" && value !== "Unavailable").join(", ");
 

@@ -48,7 +48,7 @@
           <p class="hero-description">A focused read on public-facing infrastructure. Resolve network identity, inspect DNS and web posture, and review exposed services from one clear workspace.</p>
         </div>
 
-        <div class="run-state" id="runState" data-state="idle">
+        <div class="run-state" id="runState" data-state="idle" role="status" aria-live="polite" aria-atomic="true">
           <span class="run-state-light" aria-hidden="true"></span>
           <div>
             <span class="run-state-label" id="statusLabel">Idle</span>
@@ -120,7 +120,7 @@
             </div>
             <span class="panel-index">FINDINGS</span>
           </div>
-          <div class="risk-list" id="riskList">
+          <div class="risk-list" id="riskList" aria-live="polite">
             <div class="empty-inline">
               <span class="empty-mark" aria-hidden="true">—</span>
               <div><strong>No findings yet</strong><p>Run a scan to see high-signal observations.</p></div>
@@ -144,7 +144,7 @@
               <span>A successful IP geolocation lookup is needed.</span>
             </div>
           </div>
-          <div class="geo-details">
+          <div class="geo-details" aria-live="polite">
             <div class="geo-place">
               <strong id="geoPlace">Awaiting location data</strong>
               <span id="geoNetwork">Network owner unavailable</span>
