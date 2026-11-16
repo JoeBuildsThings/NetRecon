@@ -1,4 +1,3 @@
-
 from collections import OrderedDict, deque
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -17,7 +16,7 @@ from recon import __version__
 from recon.dns_intel import resolve_dns_intel
 from recon.geo_intel import fetch_geo_intel
 from recon.logger import get_logger, log_event
-from recon.port_scanner import scan_common_ports
+from recon.port_scanner import detect_edge_network, scan_common_ports
 from recon.scope import active_scan_scope
 from recon.validator import TargetValidationError, normalize_and_validate
 from recon.web_audit import audit_web_posture
@@ -215,13 +214,14 @@ def _ports_fallback(status: str, reason: str) -> dict:
     }
 
 
-def _collect_module(future, module: str, fallback: dict, host: str) -> dict:
+def _collect_module(future, module: str, fallback: dict, host: str, partial_errors: list[str]) -> dict:
     try:
         result = future.result(timeout=MODULE_TIMEOUT_SEC)
         if not isinstance(result, dict):
             raise TypeError("Module returned an invalid result")
         return result
     except Exception as exc:
+        partial_errors.append(module)
         log_event(
             logger,
             logging.WARNING,
@@ -238,10 +238,12 @@ def api_recon():
     client = _client_ip()
     if _is_rate_limited(client):
         log_event(logger, logging.WARNING, "rate_limit_exceeded")
-        return jsonify({
+        response = jsonify({
             "ok": False,
             "error": "Scan limit reached. Please wait one minute before trying again.",
-        }), 429
+        })
+        response.headers["Retry-After"] = str(RATE_LIMIT_WINDOW)
+        return response, 429
 
     payload = request.get_json(silent=True)
     if payload is None:
@@ -289,9 +291,9 @@ def api_recon():
             else None
         )
 
-        geo = _collect_module(geo_future, "geo", _geo_fallback(target.primary_ip), target.host)
-        dns_info = _collect_module(dns_future, "dns", _dns_fallback(), target.host)
-        web_audit = _collect_module(web_future, "web", _web_fallback(), target.host)
+        geo = _collect_module(geo_future, "geo", _geo_fallback(target.primary_ip), target.host, partial_errors)
+        dns_info = _collect_module(dns_future, "dns", _dns_fallback(), target.host, partial_errors)
+        web_audit = _collect_module(web_future, "web", _web_fallback(), target.host, partial_errors)
 
         if ports_future is not None:
             ports = _collect_module(
@@ -299,8 +301,9 @@ def api_recon():
                 "ports",
                 _ports_fallback("error", "The active probe could not be completed."),
                 target.host,
+                partial_errors,
             )
-            if ports.get("status") != "completed":
+            if ports.get("status") != "completed" and "ports" not in partial_errors:
                 partial_errors.append("ports")
         elif active_scope["status"] == "disabled":
             ports = _ports_fallback(
@@ -312,6 +315,14 @@ def api_recon():
                 "scope_required",
                 "This target is outside the server-configured active scan scope. Passive checks completed.",
             )
+
+        edge_cdn, edge_provider = detect_edge_network(
+            geo.get("org", ""),
+            dns_info.get("posture", {}).get("dns_provider", ""),
+        )
+        if ports.get("status") == "completed":
+            ports["edge_cdn"] = edge_cdn
+            ports["edge_provider"] = edge_provider
 
     scanned_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     geo["lookup_at"] = scanned_at

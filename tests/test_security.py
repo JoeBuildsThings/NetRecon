@@ -1,4 +1,3 @@
-
 import pytest
 
 import app as app_module
@@ -53,7 +52,7 @@ def test_allows_globally_routable_ips(public_ip: str) -> None:
         "internal.internal",
         "file:///etc/passwd",
         "https://user:pass@example.com",
-        "example.com\\r\\nHost: attacker.test",
+        ("example.com" + chr(13) + chr(10) + "Host: attacker.test"),
     ],
 )
 def test_blocks_internal_hosts_unsafe_schemes_and_credentials(bad_host: str) -> None:
@@ -192,3 +191,19 @@ def test_health_endpoint() -> None:
     data = response.get_json()
     assert data["status"] == "ok"
     assert data["service"] == "netrecon"
+
+
+def test_rate_limit_returns_retry_after(monkeypatch) -> None:
+    monkeypatch.setattr(app_module, "_is_rate_limited", lambda _client: True)
+    response = app.test_client().post("/api/recon", json={"target": "example.com"})
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "60"
+    assert response.get_json()["ok"] is False
+
+
+def test_dashboard_renders_new_workbench() -> None:
+    response = app.test_client().get("/")
+    assert response.status_code == 200
+    assert b"Hosting location" in response.data
+    assert b"TCP probes start automatically" in response.data
+    assert response.headers["Content-Security-Policy"]

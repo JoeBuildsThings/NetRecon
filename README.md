@@ -1,56 +1,40 @@
-<div align="center">
-
 # NetRecon
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=22&duration=3500&pause=1200&color=22D3EE&center=true&vCenter=true&width=720&lines=External+attack+surface+audit;DNS+%7C+TLS+%7C+Headers+%7C+ASN+%7C+Ports;SSRF-guarded+%C2%B7+ownership-gated)](https://git.io/typing-svg)
+**External surface intelligence for domains and public IP addresses.**
 
-**One-pass reconnaissance workbench for public domains and IPs.**
+NetRecon brings DNS intelligence, TLS and HTTP posture, IP geolocation, and scoped TCP exposure checks into one reconnaissance workbench.
 
-[![Live Demo](https://img.shields.io/badge/Live-netrecon.vercel.app-22d3ee?style=for-the-badge&logo=vercel&logoColor=white)](https://netrecon.vercel.app)
-[![CI](https://img.shields.io/github/actions/workflow/status/JoeBuildsThings/NetRecon/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/JoeBuildsThings/NetRecon/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+[Live application](https://netrecon.vercel.app) · [Source](https://github.com/JoeBuildsThings/NetRecon) · [MIT License](LICENSE)
 
-<br />
+## Capabilities
 
-[Live App](https://netrecon.vercel.app) · [Privacy](https://netrecon.vercel.app/privacy) · [Report Issue](https://github.com/JoeBuildsThings/NetRecon/issues)
+| Module | What it reports |
+| --- | --- |
+| DNS | A/AAAA, CNAME, MX, NS, TXT, PTR, SPF and DMARC posture |
+| Web | HTTPS reachability, TLS certificate verification, security headers and posture score |
+| Network | IP version, approximate location, ASN, organisation and ISP metadata |
+| TCP | Common exposed TCP services, connection latency and service banners |
+| Exports | Readable scan summary and complete JSON result |
 
-</div>
+Passive DNS, web and IP-intelligence checks run concurrently for valid public targets. The map plots only coordinates returned by a geolocation provider and shows its source and lookup time. IP geolocation is approximate and must not be treated as a physical address.
 
----
+## Active scan policy
 
-## What it does
+The previous per-domain DNS TXT ownership challenge has been removed. Active TCP probes start automatically when a submitted target matches the deployment operator's server-side scan scope. There is no user-facing ownership workflow.
 
-NetRecon runs a parallel, SSRF-guarded audit against a public target and returns:
+Configure `NETRECON_ACTIVE_SCAN_ALLOWLIST` in the hosting environment. Supported entries are exact hostnames, explicit wildcard subdomains, IP addresses and CIDR ranges. See [the active-scan scope guide](docs/active-scan-scope.md) for examples and deployment notes.
 
-| Module | Output |
-|--------|--------|
-| **DNS** | A/AAAA, MX, NS, TXT, PTR · SPF / DMARC posture |
-| **Web** | TLS availability & verification · security header scoring · grade |
-| **Geo / ASN** | City, country, org, ASN from public IP intel |
-| **Ports** | Common-port probe **only after** DNS TXT ownership proof |
+When no scope is configured, passive reconnaissance remains available and active probing stays disabled. Targets outside the configured scope receive passive results and an explicit port-module status. Only configure systems and ranges the deployment operator is authorised to assess.
 
-Active TCP probing is ownership-gated on production. Private, loopback, CGNAT, and metadata ranges are rejected at validation time.
+## Security controls
 
----
-
-## Stack
-
-```text
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Browser UI │────▶│  Flask / Vercel  │────▶│  recon modules  │
-│  static JS  │◀────│  rate limit +    │◀────│  dns · geo ·    │
-│  dark SOC   │     │  security hdrs   │     │  web · ports    │
-└─────────────┘     └──────────────────┘     └─────────────────┘
-```
-
-- **Backend:** Flask, concurrent modules (`ThreadPoolExecutor`), ProxyFix
-- **Intel:** dnspython, requests, public DNS + IP geolocation APIs
-- **Optional:** Upstash Redis REST for distributed rate limits
-- **Frontend:** Space Grotesk · Plus Jakarta Sans · JetBrains Mono
-
----
+- Public, globally routable target validation. Private, loopback, link-local, CGNAT, reserved and internal destinations are rejected.
+- DNS is resolved before a scan and network checks use the validated, pinned IP address.
+- Request body size is limited and target input rejects control characters, malformed URLs and embedded credentials.
+- Scan submissions are rate limited to 25 requests per client IP per 60-second window.
+- Optional Upstash Redis provides a shared rate-limit counter for serverless deployments.
+- Security response headers, SSRF-aware redirect inspection, module-level failure handling and safe frontend text rendering.
+- No scan history is stored by the server. Recent targets remain in browser local storage.
 
 ## Quick start
 
@@ -59,108 +43,85 @@ git clone https://github.com/JoeBuildsThings/NetRecon.git
 cd NetRecon
 
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
 python app.py
 ```
 
-Open [http://127.0.0.1:5000](http://127.0.0.1:5000)
+Open `http://127.0.0.1:5000`.
 
-### API sketch
+For local active probes, create a `.env` file or export the scope variable in the shell before starting Flask:
 
 ```bash
-# Health
-curl -s https://netrecon.vercel.app/api/health | jq
-
-# Recon (POST JSON)
-curl -s -X POST https://netrecon.vercel.app/api/recon \
-  -H 'Content-Type: application/json' \
-  -d '{"target":"github.com","include_ports":true}' | jq
+export NETRECON_ACTIVE_SCAN_ALLOWLIST=example.com,api.example.com
+python app.py
 ```
 
-```python
-# Response shape (simplified)
+For wildcard scope, use an explicit entry such as `*.example.com`. It matches subdomains of the domain, not the apex.
+
+## Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `NETRECON_ACTIVE_SCAN_ALLOWLIST` | Comma-separated exact hostnames, wildcard subdomains, IP addresses or CIDR ranges allowed for active TCP probes |
+| `UPSTASH_REDIS_REST_URL` | Optional HTTPS endpoint for shared rate limiting |
+| `UPSTASH_REDIS_REST_TOKEN` | Optional server-side Upstash token. Never expose it to the browser. |
+
+In Vercel, configure these under the project's encrypted Environment Variables settings and redeploy. The Upstash token must remain server-side. When the Upstash service is unavailable, the application falls back to a process-local limiter. That fallback is not a shared limit across serverless instances.
+
+## API
+
+### `GET /api/health`
+
+Returns service status and version.
+
+### `POST /api/recon`
+
+```json
 {
-  "ok": True,
-  "elapsed_ms": 1234.5,
-  "partial": False,
-  "target": {"host": "github.com", "primary_ip": "...", "is_ip": False},
-  "ownership": {"verified": False, "txt_host": "...", "txt_value": "..."},
-  "geo": {"asn": "...", "org": "...", "country": "..."},
-  "dns": {"posture": {"spf_status": "...", "dmarc_policy": "..."}},
-  "web": {"grade": "A", "score": 92, "tls": {"available": True}},
-  "ports": {"status": "verification_required", "open_ports": []}
+  "target": "example.com"
 }
 ```
 
----
+The response contains `target`, `active_scope`, `geo`, `dns`, `web`, `ports`, `scanned_at`, `elapsed_ms` and partial-module status. The `ports.status` field distinguishes a completed probe from an out-of-scope target or a deployment where active probing has not been configured.
 
-## Security posture
-
-| Control | Detail |
-|---------|--------|
-| **SSRF guards** | Global-unicast allowlist only — no RFC1918, loopback, link-local, CGNAT, metadata |
-| **Ownership gate** | TXT challenge before active port scans in production |
-| **Rate limit** | 25 req / 60s per client IP (in-memory + optional Upstash) |
-| **Headers** | HSTS, CSP, `X-Frame-Options: DENY`, Referrer-Policy, Permissions-Policy |
-| **Data** | No persistent user scan DB — history stays in browser `localStorage` |
-
----
-
-## Tests & CI
+## Test and lint
 
 ```bash
-pytest tests/ -v
+pip install -r requirements-dev.txt
+pytest tests/ -v --tb=short
 ruff check .
+mypy recon app.py --ignore-missing-imports
 ```
-
-GitHub Actions runs **ruff + pytest** on every push to `main` (Python 3.11 / 3.12).
-
----
-
-## Environment (optional)
-
-| Variable | Purpose |
-|----------|---------|
-| `UPSTASH_REDIS_REST_URL` | Distributed rate-limit store |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST token |
-
-Core operation stays on free tiers — no paid services required.
-
----
 
 ## Project layout
 
 ```text
 NetRecon/
-├── app.py                 # Flask entry + /api/recon
+├── app.py
 ├── recon/
-│   ├── validator.py       # Target normalize + SSRF blocklist
 │   ├── dns_intel.py
 │   ├── geo_intel.py
-│   ├── web_audit.py
-│   ├── ownership.py
+│   ├── logger.py
 │   ├── port_scanner.py
-│   └── logger.py
+│   ├── scope.py
+│   ├── validator.py
+│   └── web_audit.py
 ├── static/
-│   ├── styles.css
-│   └── app.js
+│   ├── app.js
+│   └── styles.css
 ├── templates/
 │   ├── index.html
-│   ├── privacy.html
-│   └── 404.html
-├── tests/
-│   └── test_security.py
-└── .github/workflows/ci.yml
+│   └── privacy.html
+├── docs/
+│   └── active-scan-scope.md
+└── tests/
+    └── test_security.py
 ```
-
----
 
 ## License
 
-[MIT](LICENSE) © Adebiyi Joseph Ayomide / JoeBuildsThings
+MIT. See [LICENSE](LICENSE).
 
-> **Authorized testing only.** Use NetRecon only on systems you own or have explicit permission to audit.
+**Authorised testing only.** Use NetRecon only on systems you own or have explicit permission to assess.
