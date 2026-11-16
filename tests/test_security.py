@@ -207,3 +207,18 @@ def test_dashboard_renders_new_workbench() -> None:
     assert b"Hosting location" in response.data
     assert b"TCP probes start automatically" in response.data
     assert response.headers["Content-Security-Policy"]
+
+
+def test_privacy_page_discloses_current_geo_and_map_providers() -> None:
+    response = app.test_client().get("/privacy")
+    assert response.status_code == 200
+    assert b"ipwho.is and ipapi.co" in response.data
+    assert b"CARTO and OpenStreetMap" in response.data
+    assert b"Google Fonts" not in response.data
+
+
+def test_not_found_page_uses_new_workbench_shell() -> None:
+    response = app.test_client().get("/missing-route")
+    assert response.status_code == 404
+    assert b"REQUEST / 404" in response.data
+    assert b"Return to workbench" in response.data

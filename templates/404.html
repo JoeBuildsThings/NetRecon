@@ -1,29 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex" />
-  <title>404 Not Found | NetRecon</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0e0b">
+  <title>Not Found | NetRecon</title>
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="page">
-    <header class="nav">
-      <a href="/" class="brand">
-        <span class="brand-name">NetRecon</span>
-        <span class="version-tag">v{{ version }}</span>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="NetRecon home">
+        <span class="brand-symbol" aria-hidden="true"><svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="12.5"></circle><path d="M5.5 18h25M18 5.5a19 19 0 0 1 0 25M18 5.5a19 19 0 0 0 0 25"></path><circle cx="18" cy="18" r="3"></circle></svg></span>
+        <span class="brand-name">NETRECON<span class="brand-version">v{{ version }}</span></span>
       </a>
+      <nav class="top-links" aria-label="Main navigation"><a href="/">Workbench</a><a href="/privacy">Privacy</a></nav>
     </header>
-    <main class="not-found-box">
-      <p class="mono badge badge-amber">HTTP 404</p>
-      <h1>Route not found on this host.</h1>
-      <p>The requested endpoint or page does not exist. Return to the reconnaissance workbench to run a public audit.</p>
-      <a href="/" class="btn-primary">Return to Workbench</a>
+    <main class="main-content">
+      <section class="panel notfound-panel">
+        <p class="section-kicker">REQUEST / 404</p>
+        <h1>Target not found.</h1>
+        <p class="hero-description">This route does not exist. Return to the workbench and start with a valid public target.</p>
+        <a class="scan-button notfound-link" href="/">Return to workbench <span aria-hidden="true">→</span></a>
+      </section>
     </main>
+    <footer class="footer"><span><span class="footer-led" aria-hidden="true"></span> NETRECON <span class="footer-divider">/</span> ROUTE NOT FOUND</span><span><a href="/">WORKBENCH</a></span></footer>
   </div>
 </body>
 </html>
