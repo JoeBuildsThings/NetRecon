@@ -15,7 +15,9 @@ _geo_cache_lock = threading.Lock()
 
 
 def _safe_coord(value: object, low: float, high: float) -> float | None:
-    if value is None or value == "" or isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    if isinstance(value, str) and not value.strip():
         return None
     try:
         num = float(value)

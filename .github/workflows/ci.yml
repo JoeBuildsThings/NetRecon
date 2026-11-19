@@ -6,10 +6,18 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
 
@@ -28,11 +36,17 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Lint
+      - name: Lint Python (Ruff)
         run: ruff check .
 
-      - name: Type check
-        run: mypy recon app.py --ignore-missing-imports || true
+      - name: Type check (Mypy)
+        run: mypy recon app.py --ignore-missing-imports
 
-      - name: Security tests
-        run: pytest tests/ -v --tb=short
+      - name: Verify frontend JavaScript syntax
+        run: |
+          for file in static/*.js; do
+            node --check "$file"
+          done
+
+      - name: Security & regression tests
+        run: pytest tests/ -v --cov=recon --cov=app --cov-report=term-missing --tb=short

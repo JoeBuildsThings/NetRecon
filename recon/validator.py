@@ -137,7 +137,7 @@ def normalize_and_validate(raw_target: str) -> ValidatedTarget:
 
     resolved_ips: list[str] = []
     for entry in addr_info:
-        candidate = entry[4][0]
+        candidate = str(entry[4][0])
         if is_disallowed_ip(candidate):
             raise TargetValidationError("Target resolves to a private or restricted IP address.")
         if candidate not in resolved_ips:
