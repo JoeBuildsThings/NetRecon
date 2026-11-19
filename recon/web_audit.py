@@ -21,6 +21,12 @@ SECURITY_HEADERS: list[tuple[str, str, int, str]] = [
 ]
 
 
+def _format_host_header(host: str) -> str:
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
+
+
 def _extract_cert_fields(cert: dict, host: str) -> dict:
     subject = dict(x[0] for x in cert.get("subject", ()))
     issuer = dict(x[0] for x in cert.get("issuer", ()))
@@ -28,12 +34,18 @@ def _extract_cert_fields(cert: dict, host: str) -> dict:
     days_left = None
     if not_after_str:
         try:
-            expires_dt = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+            expires_dt = datetime.strptime(
+                not_after_str, "%b %d %H:%M:%S %Y %Z"
+            ).replace(tzinfo=timezone.utc)
             days_left = (expires_dt - datetime.now(timezone.utc)).days
         except ValueError:
             days_left = None
 
-    sans = [val for kind, val in cert.get("subjectAltName", ()) if kind == "DNS"]
+    sans = [
+        val
+        for kind, val in cert.get("subjectAltName", ())
+        if kind in {"DNS", "IP Address"}
+    ]
     return {
         "common_name": subject.get("commonName", host),
         "issuer": issuer.get("organizationName") or issuer.get("commonName") or "Unknown CA",
@@ -46,10 +58,11 @@ def _extract_cert_fields(cert: dict, host: str) -> dict:
 
 def _read_head_block(sock: socket.socket, host: str) -> tuple[int, dict[str, str]]:
     """Send an HTTP/1.1 HEAD request over an already connected pinned socket and parse headers only."""
+    host_header = _format_host_header(host)
     req = (
         f"HEAD / HTTP/1.1\r\n"
-        f"Host: {host}\r\n"
-        f"User-Agent: NetRecon/2.1 Security Audit\r\n"
+        f"Host: {host_header}\r\n"
+        f"User-Agent: NetRecon/2.2 Security Audit\r\n"
         f"Accept: */*\r\n"
         f"Connection: close\r\n\r\n"
     ).encode("ascii", errors="ignore")
@@ -88,10 +101,13 @@ def _read_head_block(sock: socket.socket, host: str) -> tuple[int, dict[str, str
     return status_code, headers
 
 
-def _probe_pinned_https(host: str, ip: str) -> tuple[dict, tuple[int, dict[str, str]] | None]:
+def _probe_pinned_https(
+    host: str, ip: str, is_ip: bool = False
+) -> tuple[dict, tuple[int, dict[str, str]] | None]:
     """Connect directly to pinned IP on 443/tcp, verify TLS certificate, and read HEAD headers."""
     family = socket.AF_INET6 if ":" in ip else socket.AF_INET
     verify_error: str | None = None
+    sni_host = None if is_ip else host
 
     try:
         ctx = ssl.create_default_context()
@@ -119,7 +135,13 @@ def _probe_pinned_https(host: str, ip: str) -> tuple[dict, tuple[int, dict[str, 
         verify_error = getattr(exc, "verify_message", None) or str(exc)
         log_event(logger, logging.INFO, "tls_verification_failed", host=host, reason=verify_error)
     except Exception as exc:
-        log_event(logger, logging.DEBUG, "https_pinned_probe_failed", host=host, error_type=type(exc).__name__)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "https_pinned_probe_failed",
+            host=host,
+            error_type=type(exc).__name__,
+        )
         return {"available": False, "verified": False, "verify_error": None}, None
 
     try:
@@ -129,7 +151,7 @@ def _probe_pinned_https(host: str, ip: str) -> tuple[dict, tuple[int, dict[str, 
         with socket.socket(family, socket.SOCK_STREAM) as raw_sock:
             raw_sock.settimeout(2.5)
             raw_sock.connect((ip, 443))
-            with unverified_ctx.wrap_socket(raw_sock, server_hostname=host) as tls_sock:
+            with unverified_ctx.wrap_socket(raw_sock, server_hostname=sni_host) as tls_sock:
                 tls_sock.settimeout(2.5)
                 protocol = tls_sock.version() or "Unknown"
                 cipher_info = tls_sock.cipher()
@@ -150,7 +172,13 @@ def _probe_pinned_https(host: str, ip: str) -> tuple[dict, tuple[int, dict[str, 
                 head_res = _read_head_block(tls_sock, host)
                 return tls_info, head_res
     except Exception as exc:
-        log_event(logger, logging.DEBUG, "https_unverified_fallback_failed", host=host, error_type=type(exc).__name__)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "https_unverified_fallback_failed",
+            host=host,
+            error_type=type(exc).__name__,
+        )
         return {"available": False, "verified": False, "verify_error": verify_error}, None
 
 
@@ -162,7 +190,13 @@ def _probe_pinned_http(host: str, ip: str) -> tuple[int, dict[str, str]] | None:
             raw_sock.connect((ip, 80))
             return _read_head_block(raw_sock, host)
     except Exception as exc:
-        log_event(logger, logging.DEBUG, "http_pinned_probe_failed", host=host, error_type=type(exc).__name__)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "http_pinned_probe_failed",
+            host=host,
+            error_type=type(exc).__name__,
+        )
         return None
 
 
@@ -238,12 +272,8 @@ def _inspect_redirect_location(base_url: str, location: str | None) -> dict | No
 
 def audit_web_posture(host: str, ip: str, is_ip: bool) -> dict:
     """Inspect TLS certificate health and HTTP security headers over a pinned socket without following redirects."""
-    tls_info: dict = {"available": False, "verified": False, "verify_error": None}
-    head_result: tuple[int, dict[str, str]] | None = None
+    tls_info, head_result = _probe_pinned_https(host, ip, is_ip=is_ip)
     scheme = "https"
-
-    if not is_ip:
-        tls_info, head_result = _probe_pinned_https(host, ip)
 
     if head_result is None:
         scheme = "http"
@@ -261,7 +291,8 @@ def audit_web_posture(host: str, ip: str, is_ip: bool) -> dict:
         }
 
     status_code, resp_headers = head_result
-    final_url = f"{scheme}://{host}/"
+    host_url = _format_host_header(host)
+    final_url = f"{scheme}://{host_url}/"
     https_active = scheme == "https"
     tls_verified = bool(tls_info.get("verified"))
 

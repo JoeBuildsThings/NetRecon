@@ -44,6 +44,12 @@ CDN_KEYWORDS: dict[str, str] = {
 }
 
 
+def _format_host_header(host: str) -> str:
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
+
+
 def detect_edge_network(org: str, dns_provider: str = "") -> tuple[bool, str]:
     combined = f"{org} {dns_provider}".lower()
     for key, label in CDN_KEYWORDS.items():
@@ -66,9 +72,10 @@ def sanitize_banner(raw: bytes) -> str:
 
 def _grab_banner(sock: socket.socket, port: int, host: str) -> str:
     sock.settimeout(0.6)
+    host_header = _format_host_header(host)
     try:
         if port in (80, 8080):
-            req = f"HEAD / HTTP/1.0\r\nHost: {host}\r\nUser-Agent: NetRecon/2.1\r\n\r\n".encode()
+            req = f"HEAD / HTTP/1.0\r\nHost: {host_header}\r\nUser-Agent: NetRecon/2.2\r\n\r\n".encode()
             sock.sendall(req)
             return sanitize_banner(sock.recv(512))
         if port in (443, 8443):
@@ -77,7 +84,7 @@ def _grab_banner(sock: socket.socket, port: int, host: str) -> str:
             ctx.verify_mode = ssl.CERT_NONE
             with ctx.wrap_socket(sock, server_hostname=host) as tls_sock:
                 tls_sock.settimeout(0.6)
-                req = f"HEAD / HTTP/1.0\r\nHost: {host}\r\nUser-Agent: NetRecon/2.1\r\n\r\n".encode()
+                req = f"HEAD / HTTP/1.0\r\nHost: {host_header}\r\nUser-Agent: NetRecon/2.2\r\n\r\n".encode()
                 tls_sock.sendall(req)
                 banner = sanitize_banner(tls_sock.recv(512))
                 proto = tls_sock.version() or "TLS"
@@ -85,7 +92,13 @@ def _grab_banner(sock: socket.socket, port: int, host: str) -> str:
         if port in (21, 22, 23, 25, 110, 143, 587):
             return sanitize_banner(sock.recv(256))
     except Exception as exc:
-        log_event(logger, logging.DEBUG, "banner_grab_skipped", port=port, error_type=type(exc).__name__)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "banner_grab_skipped",
+            port=port,
+            error_type=type(exc).__name__,
+        )
         return ""
     return ""
 
@@ -111,7 +124,13 @@ def _probe_single_port(ip: str, host: str, port_meta: tuple[int, str, str, str])
             "banner": banner,
         }
     except Exception as exc:
-        log_event(logger, logging.DEBUG, "port_probe_error", port=port, error_type=type(exc).__name__)
+        log_event(
+            logger,
+            logging.DEBUG,
+            "port_probe_error",
+            port=port,
+            error_type=type(exc).__name__,
+        )
         return None
     finally:
         try:

@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 import ipaddress
 import re
@@ -7,7 +6,7 @@ from urllib.parse import urlparse
 
 
 HOSTNAME_RE = re.compile(
-    r"^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{0,61}[a-z][a-z0-9-]{0,61}(?<!-))+$"
+    r"^(?=.{1,253}$)(?:(?!-)[a-z0-9-]{1,63}(?<!-)\.)+(?:xn--[a-z0-9-]{1,59}(?<!-)|[a-z]{2,63})$"
 )
 
 CGNAT_NET = ipaddress.ip_network("100.64.0.0/10")
@@ -110,7 +109,11 @@ def normalize_and_validate(raw_target: str) -> ValidatedTarget:
             raise TargetValidationError(
                 "Private, loopback, link local, CGNAT, and reserved IP ranges are blocked."
             )
-        canonical = str(ip_obj.ipv4_mapped) if ip_obj.version == 6 and ip_obj.ipv4_mapped else str(ip_obj)
+        canonical = (
+            str(ip_obj.ipv4_mapped)
+            if ip_obj.version == 6 and ip_obj.ipv4_mapped
+            else str(ip_obj)
+        )
         return ValidatedTarget(
             raw_input=raw_target.strip(),
             host=canonical,

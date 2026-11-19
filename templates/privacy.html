@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0e0b">
+  <meta name="theme-color" content="#070b09">
   <title>Privacy Policy | NetRecon</title>
   <meta name="description" content="How NetRecon handles scan targets, network metadata, rate limits, and third-party infrastructure providers.">
   <link rel="canonical" href="https://netrecon.vercel.app/privacy">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#policyMain">Skip to privacy policy</a>
   <div class="app-shell">
     <header class="topbar">
       <a class="brand" href="/" aria-label="NetRecon home">
@@ -19,17 +20,19 @@
         <span class="brand-name">NETRECON<span class="brand-version">v{{ version }}</span></span>
       </a>
       <div class="topbar-right">
-        <nav class="top-links" aria-label="Main navigation"><a href="/">Workbench</a><a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">Source</a></nav>
+        <nav class="top-links" aria-label="Main navigation">
+          <a href="/">Workbench</a>
+          <a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </nav>
       </div>
     </header>
 
-    <main class="main-content policy-main">
-      <section class="hero-section policy-hero">
+    <main class="main-content policy-main" id="policyMain">
+      <section class="panel policy-hero">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-line"></span> PRIVACY / DATA PRACTICES</p>
           <h1>Clear about<br><span>what leaves the browser.</span></h1>
-          <p class="hero-description">This policy explains the network data NetRecon processes to run a scan, the external services involved, and what is retained.</p>
-          <p class="policy-meta">EFFECTIVE DATE · NOVEMBER 16, 2026</p>
+          <p class="hero-description">This policy explains the network data NetRecon processes to run a scan, the external infrastructure providers involved, and what is retained.</p>
+          <p class="policy-meta">EFFECTIVE DATE: NOVEMBER 19, 2026</p>
         </div>
       </section>
 
@@ -37,55 +40,51 @@
         <section class="panel policy-section">
           <p class="section-kicker">01 / PROCESSING</p>
           <h2>Data processed during a scan</h2>
-          <p>When a visitor submits a target, NetRecon processes the entered target, its resolved public IP address or addresses, and the requester's network address for rate limiting. These are used to run the requested DNS, web-posture, geolocation and, when the target matches the deployment's configured scope, TCP checks.</p>
-          <p>Do not submit credentials, private endpoints, or targets you are not authorised to assess. The application rejects local and non-public address ranges and does not accept embedded URL credentials.</p>
+          <p>When a visitor submits a target, NetRecon processes the entered target, its resolved public IP address or addresses, and the requester IP address for rate limiting. These are used strictly to execute DNS, TLS, HTTP header, IP geolocation, and operator-scoped TCP checks.</p>
+          <p>Do not submit credentials, private endpoints, or targets you are not authorized to assess. The server blocks private, loopback, link-local, CGNAT, reserved, and internal hostnames and rejects embedded URL credentials.</p>
         </section>
 
         <section class="panel policy-section">
           <p class="section-kicker">02 / SERVICE PROVIDERS</p>
           <h2>External services</h2>
-          <p>Depending on the module and deployment configuration, requests may involve these providers:</p>
+          <p>NetRecon renders its 3D tracking globe locally in the browser using HTML5 Canvas with zero third-party map tiles, CDN scripts, or external web fonts. Server-side scans may involve these providers:</p>
           <ul class="policy-list">
-            <li><strong>Vercel:</strong> hosts the application and may process standard request metadata, including visitor IP address, user agent and operational logs.</li>
-            <li><strong>ipwho.is and ipapi.co:</strong> receive the scanned target's resolved public IP address for approximate location, ASN and network-owner lookups. The visitor's IP address is not submitted to these geolocation lookups.</li>
-            <li><strong>Cloudflare Public DNS and Google Public DNS:</strong> receive DNS questions needed to resolve target records.</li>
-            <li><strong>jsDelivr:</strong> serves the Leaflet map library and stylesheet used by the browser.</li>
-            <li><strong>CARTO and OpenStreetMap:</strong> CARTO serves map tiles and OpenStreetMap contributors provide map data attribution. Loading tiles may expose normal browser request metadata and the map tiles requested.</li>
-            <li><strong>Upstash Redis:</strong> when the operator configures it, receives rate-limit counter operations associated with the requester IP. It is optional and is used only for shared rate limiting.</li>
+            <li><strong>Vercel:</strong> hosts the application and may process standard HTTP request metadata, including visitor IP address, user agent, and operational logs.</li>
+            <li><strong>ipwho.is and ipapi.co:</strong> receive the scanned target resolved public IP address for approximate geolocation, ASN, and network-owner lookups. Visitor IP addresses are not submitted to geolocation providers.</li>
+            <li><strong>Cloudflare Public DNS and Google Public DNS:</strong> receive DNS queries required to resolve target records and reverse PTR lookups.</li>
+            <li><strong>Upstash Redis:</strong> optional shared rate-limit counter storing window-bucketed requester IP counters when configured by the operator.</li>
           </ul>
-          <p>Each provider processes information under its own terms and privacy policy. NetRecon does not control their independent retention practices.</p>
+          <p>Each provider processes data under its own terms and privacy policy.</p>
         </section>
 
         <section class="panel policy-section">
-          <p class="section-kicker">03 / RETENTION</p>
-          <h2>Storage and retention</h2>
-          <p>NetRecon does not maintain a persistent database of scan reports. Recent target names are stored in the visitor's browser local storage so they can be reused in the interface. Clearing browser site data removes that local history.</p>
-          <p>The geolocation module may cache lookup results temporarily. Process-local rate-limit counters expire after their 60-second window. When Upstash is enabled, its rate-limit keys use a short expiry. Hosting-provider operational logs may be retained under the hosting provider's own policies.</p>
+          <p class="section-kicker">03 / RETENTION &amp; LOCAL STORAGE</p>
+          <h2>Storage, cookies, and deletion</h2>
+          <p>NetRecon sets no tracking cookies and maintains no persistent database of scan reports. Recent target names are saved only in browser localStorage so you can re-run queries quickly; clearing browser site data deletes them immediately.</p>
+          <p>In-memory geolocation caches expire after 15 minutes. Rate-limit counters expire after their 60-second window. NetRecon is a technical security utility not directed at children under 13.</p>
         </section>
 
         <section class="panel policy-section">
-          <p class="section-kicker">04 / SECURITY</p>
-          <h2>Protective controls</h2>
+          <p class="section-kicker">04 / SECURITY CONTROLS</p>
+          <h2>Protective architecture</h2>
           <ul class="policy-list">
-            <li>Public target validation blocks private, loopback, link-local, CGNAT, reserved and internal destinations.</li>
-            <li>Active TCP probing starts only for targets that match the server-side scope configured by the deployment operator.</li>
-            <li>Scan requests are rate limited. Deployments can use Upstash for a shared counter across instances.</li>
-            <li>Scan modules handle failures independently so one unavailable provider does not require fabricated data or a false location marker.</li>
+            <li>Pinned-socket HTTPS and HTTP probing with strict public IP validation prevents DNS rebinding and SSRF redirects.</li>
+            <li>Active TCP probing runs only when the target matches the server-side NETRECON_ACTIVE_SCAN_ALLOWLIST configuration.</li>
+            <li>Strict self-only Content-Security-Policy blocks third-party scripts, frames, and external tile calls.</li>
           </ul>
         </section>
 
         <section class="panel policy-section">
           <p class="section-kicker">05 / CONTACT</p>
-          <h2>Questions and requests</h2>
-          <p>For privacy or security questions, open an issue in the <a href="https://github.com/JoeBuildsThings/NetRecon/issues" target="_blank" rel="noopener noreferrer">NetRecon GitHub repository</a>.</p>
-          <p class="policy-updated">This policy should be reviewed whenever the deployment's external providers or data handling change.</p>
+          <h2>Questions and rights</h2>
+          <p>For privacy inquiries or security disclosures, open an issue in the <a href="https://github.com/JoeBuildsThings/NetRecon/issues" target="_blank" rel="noopener noreferrer">NetRecon GitHub repository</a>.</p>
         </section>
       </div>
     </main>
 
     <footer class="footer">
       <span><span class="footer-led" aria-hidden="true"></span> NETRECON <span class="footer-divider">/</span> PRIVACY POLICY</span>
-      <span><a href="/">WORKBENCH</a><span class="footer-divider">·</span><a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">SOURCE</a></span>
+      <span><a href="/">WORKBENCH</a><span class="footer-divider">/</span><a href="https://github.com/JoeBuildsThings/NetRecon" target="_blank" rel="noopener noreferrer">GITHUB</a></span>
     </footer>
   </div>
 </body>

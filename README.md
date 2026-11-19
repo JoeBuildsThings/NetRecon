@@ -16,7 +16,7 @@ NetRecon brings DNS intelligence, TLS and HTTP posture, IP geolocation, and scop
 | TCP | Common exposed TCP services, connection latency and service banners |
 | Exports | Readable scan summary and complete JSON result |
 
-Passive DNS, web and IP-intelligence checks run concurrently for valid public targets. The map plots only coordinates returned by a geolocation provider and shows its source and lookup time. IP geolocation is approximate and must not be treated as a physical address.
+Passive DNS, web and IP-intelligence checks run concurrently for valid public targets. The interactive 3D Canvas tracking globe renders locally with zero external map tiles, plotting only verified coordinates returned by a geolocation provider alongside its source and lookup time. IP geolocation is approximate and must not be treated as a physical address.
 
 ## Active scan policy
 
@@ -109,9 +109,14 @@ NetRecon/
 │   ├── validator.py
 │   └── web_audit.py
 ├── static/
+│   ├── api.js
 │   ├── app.js
+│   ├── globe.js
+│   ├── render.js
 │   └── styles.css
 ├── templates/
+│   ├── 404.html
+│   ├── 500.html
 │   ├── index.html
 │   └── privacy.html
 ├── docs/

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070b09">
+  <title>Service Error | NetRecon</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="NetRecon home">
+        <span class="brand-symbol" aria-hidden="true"><svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="12.5"></circle><path d="M5.5 18h25M18 5.5a19 19 0 0 1 0 25M18 5.5a19 19 0 0 0 0 25"></path><circle cx="18" cy="18" r="3"></circle></svg></span>
+        <span class="brand-name">NETRECON<span class="brand-version">v{{ version }}</span></span>
+      </a>
+      <nav class="top-links" aria-label="Main navigation"><a href="/">Workbench</a><a href="/privacy">Privacy</a></nav>
+    </header>
+    <main class="main-content">
+      <section class="panel notfound-panel">
+        <p class="section-kicker">ENGINE / 500</p>
+        <h1>Internal service fault.</h1>
+        <p class="hero-description">An unexpected server error interrupted this request. No internal stack trace was exposed. Return to the workbench and retry.</p>
+        <a class="scan-button notfound-link" href="/">Return to workbench</a>
+      </section>
+    </main>
+    <footer class="footer"><span><span class="footer-led" aria-hidden="true"></span> NETRECON <span class="footer-divider">/</span> SERVICE FAULT</span><span><a href="/">WORKBENCH</a></span></footer>
+  </div>
+</body>
+</html>

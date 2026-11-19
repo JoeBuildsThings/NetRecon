@@ -106,10 +106,10 @@ def apply_security_headers(response: Response) -> Response:
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "
-        "style-src 'self' https://cdn.jsdelivr.net; "
-        "img-src 'self' data: https://*.basemaps.cartocdn.com; "
-        "connect-src 'self' https://*.basemaps.cartocdn.com; "
+        "script-src 'self'; "
+        "style-src 'self'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
         "font-src 'self' data:; "
         "object-src 'none'; "
         "base-uri 'self'; "
@@ -119,6 +119,8 @@ def apply_security_headers(response: Response) -> Response:
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
     return response
 
 
@@ -273,9 +275,8 @@ def api_recon():
     active_allowed = bool(active_scope["allowed"])
     partial_errors: list[str] = []
 
-    # All eligible modules are submitted together. The active probe therefore
-    # runs concurrently with DNS and geolocation rather than after them.
-    with ThreadPoolExecutor(max_workers=4, thread_name_prefix="netrecon") as pool:
+    pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="netrecon")
+    try:
         geo_future = pool.submit(fetch_geo_intel, target.primary_ip)
         dns_future = pool.submit(resolve_dns_intel, target.host, target.primary_ip, target.is_ip)
         web_future = pool.submit(audit_web_posture, target.host, target.primary_ip, target.is_ip)
@@ -291,9 +292,15 @@ def api_recon():
             else None
         )
 
-        geo = _collect_module(geo_future, "geo", _geo_fallback(target.primary_ip), target.host, partial_errors)
-        dns_info = _collect_module(dns_future, "dns", _dns_fallback(), target.host, partial_errors)
-        web_audit = _collect_module(web_future, "web", _web_fallback(), target.host, partial_errors)
+        geo = _collect_module(
+            geo_future, "geo", _geo_fallback(target.primary_ip), target.host, partial_errors
+        )
+        dns_info = _collect_module(
+            dns_future, "dns", _dns_fallback(), target.host, partial_errors
+        )
+        web_audit = _collect_module(
+            web_future, "web", _web_fallback(), target.host, partial_errors
+        )
 
         if ports_future is not None:
             ports = _collect_module(
@@ -320,9 +327,10 @@ def api_recon():
             geo.get("org", ""),
             dns_info.get("posture", {}).get("dns_provider", ""),
         )
-        if ports.get("status") == "completed":
-            ports["edge_cdn"] = edge_cdn
-            ports["edge_provider"] = edge_provider
+        ports["edge_cdn"] = edge_cdn
+        ports["edge_provider"] = edge_provider
+    finally:
+        pool.shutdown(wait=not bool(partial_errors), cancel_futures=True)
 
     scanned_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
     geo["lookup_at"] = scanned_at
@@ -380,7 +388,7 @@ def request_too_large(_err):
 def server_error(_err):
     if request.path.startswith("/api/"):
         return jsonify({"ok": False, "error": "Internal service error."}), 500
-    return render_template("404.html", version=__version__), 500
+    return render_template("500.html", version=__version__), 500
 
 
 if __name__ == "__main__":

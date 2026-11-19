@@ -3,14 +3,21 @@ import pytest
 import app as app_module
 from app import app
 from recon.dns_intel import evaluate_dmarc_policy
+from recon.geo_intel import _safe_coord, fetch_geo_intel
 from recon.scope import active_scan_scope
 from recon.validator import (
+    HOSTNAME_RE,
     TargetValidationError,
     ValidatedTarget,
     is_disallowed_ip,
     normalize_and_validate,
 )
-from recon.web_audit import _evaluate_header_score, _inspect_redirect_location
+from recon.web_audit import (
+    _evaluate_header_score,
+    _format_host_header,
+    _inspect_redirect_location,
+    audit_web_posture,
+)
 
 
 @pytest.mark.parametrize(
@@ -44,6 +51,13 @@ def test_allows_globally_routable_ips(public_ip: str) -> None:
     assert target.is_ip is True
 
 
+def test_hostname_regex_allows_numeric_subdomains_and_blocks_numeric_tlds() -> None:
+    assert HOSTNAME_RE.fullmatch("1.example.com") is not None
+    assert HOSTNAME_RE.fullmatch("01.api.example.co.uk") is not None
+    assert HOSTNAME_RE.fullmatch("123.456") is None
+    assert HOSTNAME_RE.fullmatch("example.123") is None
+
+
 @pytest.mark.parametrize(
     "bad_host",
     [
@@ -68,6 +82,44 @@ def test_redirect_location_ssrf_detection() -> None:
     assert finding is not None
     assert finding["followed"] is False
     assert finding["ssrf_target_blocked"] is True
+
+
+def test_format_host_header_brackets_ipv6() -> None:
+    assert _format_host_header("2606:4700:4700::1111") == "[2606:4700:4700::1111]"
+    assert _format_host_header("example.com") == "example.com"
+
+
+def test_audit_web_posture_probes_https_on_direct_ip(monkeypatch) -> None:
+    called = {"https": False}
+
+    def fake_https(host: str, ip: str, is_ip: bool = False):
+        called["https"] = True
+        assert is_ip is True
+        return (
+            {"available": True, "verified": True, "verify_error": None, "protocol": "TLSv1.3"},
+            (200, {"strict-transport-security": "max-age=63072000"}),
+        )
+
+    monkeypatch.setattr("recon.web_audit._probe_pinned_https", fake_https)
+    result = audit_web_posture("1.1.1.1", "1.1.1.1", is_ip=True)
+    assert called["https"] is True
+    assert result["https_active"] is True
+    assert result["reachable"] is True
+
+
+def test_geo_fallback_returns_none_coords_not_null_island(monkeypatch) -> None:
+    assert _safe_coord(None, -90, 90) is None
+    assert _safe_coord("", -90, 90) is None
+    assert _safe_coord(0.0, -90, 90) == 0.0
+
+    def fail_get(*_args, **_kwargs):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr("recon.geo_intel.requests.get", fail_get)
+    result = fetch_geo_intel("203.0.113.55")
+    assert result["source"] == "fallback"
+    assert result["latitude"] is None
+    assert result["longitude"] is None
 
 
 def test_header_value_grading() -> None:
@@ -127,8 +179,12 @@ def _mock_recon_modules(monkeypatch) -> None:
             "source": "unit-test",
         },
     )
-    monkeypatch.setattr(app_module, "resolve_dns_intel", lambda *_args: {"records": {}, "ptr": [], "posture": {}})
-    monkeypatch.setattr(app_module, "audit_web_posture", lambda *_args: {"reachable": True, "grade": "A", "score": 95})
+    monkeypatch.setattr(
+        app_module, "resolve_dns_intel", lambda *_args: {"records": {}, "ptr": [], "posture": {}}
+    )
+    monkeypatch.setattr(
+        app_module, "audit_web_posture", lambda *_args: {"reachable": True, "grade": "A", "score": 95}
+    )
     monkeypatch.setattr(
         app_module,
         "scan_common_ports",
@@ -188,6 +244,7 @@ def test_recon_rejects_non_object_json(monkeypatch) -> None:
 def test_health_endpoint() -> None:
     response = app.test_client().get("/api/health")
     assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
     data = response.get_json()
     assert data["status"] == "ok"
     assert data["service"] == "netrecon"
@@ -201,24 +258,34 @@ def test_rate_limit_returns_retry_after(monkeypatch) -> None:
     assert response.get_json()["ok"] is False
 
 
-def test_dashboard_renders_new_workbench() -> None:
+def test_dashboard_renders_globe_and_strict_csp() -> None:
     response = app.test_client().get("/")
     assert response.status_code == 200
+    assert b"geoGlobe" in response.data
     assert b"Hosting location" in response.data
-    assert b"TCP probes start automatically" in response.data
-    assert response.headers["Content-Security-Policy"]
+    assert b"leaflet" not in response.data.lower()
+    csp = response.headers["Content-Security-Policy"]
+    assert "script-src 'self';" in csp
+    assert "jsdelivr" not in csp
+    assert "cartocdn" not in csp
 
 
-def test_privacy_page_discloses_current_geo_and_map_providers() -> None:
+def test_privacy_page_discloses_local_globe_and_current_providers() -> None:
     response = app.test_client().get("/privacy")
     assert response.status_code == 200
     assert b"ipwho.is and ipapi.co" in response.data
-    assert b"CARTO and OpenStreetMap" in response.data
+    assert b"HTML5 Canvas" in response.data
+    assert b"CARTO" not in response.data
     assert b"Google Fonts" not in response.data
 
 
-def test_not_found_page_uses_new_workbench_shell() -> None:
+def test_not_found_and_server_error_pages() -> None:
     response = app.test_client().get("/missing-route")
     assert response.status_code == 404
     assert b"REQUEST / 404" in response.data
     assert b"Return to workbench" in response.data
+
+    with app.test_request_context("/boom"):
+        rendered, status = app_module.server_error(RuntimeError("boom"))
+        assert status == 500
+        assert "ENGINE / 500" in rendered
